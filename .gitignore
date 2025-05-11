@@ -22,3 +22,11 @@ local.properties
 *.swp
 
 
+#Visual Studio
+.vs/
+
+
+#CMake
+build/
+bin/
+out/

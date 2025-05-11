@@ -1,50 +1,47 @@
 ﻿cmake_minimum_required(VERSION 3.28)
 
-# Горячая перезагрузка для MSVC
-if(POLICY CMP0141)
-	cmake_policy(SET CMP0141 NEW)
-	if(MSVC)
-		set(CMAKE_MSVC_DEBUG_INFORMATION_FORMAT
-			"$<IF:$<AND:$<C_COMPILER_ID:MSVC>,$<CXX_COMPILER_ID:MSVC>>,
-            $<$<CONFIG:Debug,RelWithDebInfo>:EditAndContinue>,
-            $<$<CONFIG:Debug,RelWithDebInfo>:ProgramDatabase>>"
-		)
-	endif()
-endif()
-
 project(SendingSystem VERSION 1.0
-		DESCRIPTION "Application for data transfering"
-		LANGUAGES C
+        DESCRIPTION "Application for data transfering"
+        LANGUAGES C
 )
 
-set(CMAKE_C_STANDART 11)
 
 add_executable(
-		SendingSystem
-		${CMAKE_SOURSE_DIR}/src/SendingSystem.c
+        SendingSystem 
+        ${CMAKE_SOURCE_DIR}/src/Server.c
+        ${CMAKE_SOURCE_DIR}/src/cJSON.c
 )
 
 target_include_directories(
-		SendingSystem,
-		PUBLIC
-		${CMAKE_SOURSE_DIR}/include
+        SendingSystem
+        PUBLIC
+        ${CMAKE_SOURCE_DIR}/include
 )
 
-if(NOT CMAKE_BUILD_TYPE)
-    set(CMAKE_BUILD_TYPE Debug CACHE STRING "Выберите тип сборки (Debug или Release)" FORCE)
+
+
+# Горячая перезагрузка для MSVC
+if(MSVC)
+    # Активация политики для Edit and Continue
+    cmake_policy(SET CMP0141 NEW)
+
+    target_compile_options(SendingSystem PRIVATE "/std:c11")
+
+    set_property(TARGET SendingSystem PROPERTY
+        MSVC_DEBUG_INFORMATION_FORMAT "$<$<CONFIG:Debug>:EditAndContinue>"
+    )
+    set_target_properties(SendingSystem PROPERTIES
+        LINK_FLAGS_DEBUG "/INCREMENTAL"
+    )
 endif()
 
-message(STATUS "Тип сборки: ${CMAKE_BUILD_TYPE}")
-
-
-# Отключение оптимизаций
+# Установка флагов отключения оптимизации для всех конфигураций
 if(MSVC)
-	target_compile_options(SendingSystem PRIVATE /utf8
-		$<$<CONFIG:Debug>:/Od>
-		$<$<CONFIG:Release>:/Od>
-		$<$<CONFIG:RelWithDebInfo>:/Od>
-		$<$<CONFIG:MinSizeRel>:/Od>
-	)
+    # Для MSVC используем /Od и отключаем другие оптимизации
+    target_compile_options(SendingSystem PRIVATE
+        "$<$<CONFIG:Debug>:/Od>"
+    )
 else()
-	# Другие компиляторы
+    # Для GCC/Clang используем -O0
+    target_compile_options(SendingSystem PRIVATE -O0)
 endif()

@@ -3,6 +3,6 @@
 
 #pragma once
 
-#include <iostream>
+#include <stdio.h>
 
 // TODO: установите здесь ссылки на дополнительные заголовки, требующиеся для программы.

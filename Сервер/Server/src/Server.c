@@ -1,6 +1,8 @@
 ﻿#include <WinSock2.h>
 #include <WS2tcpip.h>
+#include <iphlpapi.h>
 #pragma comment(lib, "Ws2_32.lib")
+#pragma comment(lib, "iphlpapi.lib")
 
 #include <Windows.h>
 #include <locale.h>
@@ -18,13 +20,17 @@
 #define YELLOW "\x1b[33m"
 #define RESET "\x1b[0m"
 
+#define HTTP_REQUEST "GET / HTTP/1.1\r\nHost: icanhazip.com\r\nConnection: close\r\n\r\n"
+
 void print_error(const char* message);
 void print_success(const char* message);
 void print_info(const char* message);
 void send_json(SOCKET sock, const char* type, const char* data);
 bool set_socket_timeout(SOCKET sock, int timeout_sec);
 
-inline void exit_with_error(const char* message, int code);
+static inline void exit_with_error(const char* message, int code);
+
+char* get_global_ip();
 
 
 
@@ -51,6 +57,24 @@ int main(int argc, char** argv)
 		exit(EXIT_FAILURE);
 	}
 
+	// Определение IP шлюза
+	{
+		char* message="IP сервера: ";
+		char* ipAddressStr=get_global_ip();
+		size_t totalLength=strlen(message)+strlen(ipAddressStr);
+		char* concated = malloc(totalLength + 1);
+		if (!concated)
+		{
+			exit_with_error("Ошибка выделения памяти", 1);
+			return 1;
+		}
+		ZeroMemory(concated, totalLength+1);
+		strcat(concated, message);
+		strcat(concated, ipAddressStr);
+		concated[totalLength]='\0';
+		print_info(concated);
+		free(ipAddressStr);
+	}
 	// Настройка адреса сервера
 	struct sockaddr_in serverAddr;
 	memset(&serverAddr, 0, sizeof(serverAddr));
@@ -181,4 +205,133 @@ inline void exit_with_error(const char* message, int code)
 {
 	print_error(message);
 	exit(code);
+}
+
+
+
+char* get_global_ip()
+{
+    WSADATA wsaData;
+    SOCKET sock = INVALID_SOCKET;
+    struct addrinfo hints, *result = NULL, *ptr = NULL;
+    char* ip = NULL;
+    char recvbuf[BUFFER_SIZE];
+    int iResult;
+
+    // 1. Инициализация Winsock
+    if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0)
+	{
+        fprintf(stderr, "WSAStartup failed: %d\n", WSAGetLastError());
+        return NULL;
+    }
+
+    // 2. Настройка параметров для getaddrinfo
+    ZeroMemory(&hints, sizeof(hints));
+    hints.ai_family = AF_INET;
+    hints.ai_socktype = SOCK_STREAM;
+    hints.ai_protocol = IPPROTO_TCP;
+
+    // 3. Разрешение имени хоста
+    if ((iResult = getaddrinfo("icanhazip.com", "80", &hints, &result)) != 0)
+	{
+        fprintf(stderr, "getaddrinfo failed: %d\n", iResult);
+        WSACleanup();
+        return NULL;
+    }
+
+    // 4. Перебор возможных адресов и подключение
+    for (ptr = result; ptr != NULL; ptr = ptr->ai_next)
+	{
+        sock = socket(ptr->ai_family, ptr->ai_socktype, ptr->ai_protocol);
+        if (sock == INVALID_SOCKET)
+		{
+            fprintf(stderr, "socket failed: %d\n", WSAGetLastError());
+            continue;
+        }
+
+        if (connect(sock, ptr->ai_addr, (int)ptr->ai_addrlen) == SOCKET_ERROR)
+		{
+            closesocket(sock);
+            sock = INVALID_SOCKET;
+            continue;
+        }
+        break;
+    }
+
+    freeaddrinfo(result);
+
+    if (sock == INVALID_SOCKET)
+	{
+        fprintf(stderr, "Unable to connect to server\n");
+        WSACleanup();
+        return NULL;
+    }
+
+    // 5. Отправка HTTP-запроса
+    if ((iResult = send(sock, HTTP_REQUEST, (int)strlen(HTTP_REQUEST), 0)) == SOCKET_ERROR)
+	{
+        fprintf(stderr, "send failed: %d\n", WSAGetLastError());
+        closesocket(sock);
+        WSACleanup();
+        return NULL;
+    }
+
+    // 6. Получение ответа
+    int total_received = 0;
+    char* response = NULL;
+    do
+	{
+        iResult = recv(sock, recvbuf, BUFFER_SIZE - 1, 0);
+        if (iResult > 0)
+		{
+            recvbuf[iResult] = '\0';
+            char* temp = realloc(response, total_received + iResult + 1);
+            if (!temp)
+			{
+                free(response);
+                closesocket(sock);
+                WSACleanup();
+                return NULL;
+            }
+            response = temp;
+            memcpy(response + total_received, recvbuf, iResult);
+            total_received += iResult;
+            response[total_received] = '\0';
+        }
+        else if (iResult == 0)
+            break;
+        else
+		{
+            fprintf(stderr, "recv failed: %d\n", WSAGetLastError());
+            free(response);
+            closesocket(sock);
+            WSACleanup();
+            return NULL;
+        }
+    } while (iResult > 0);
+
+    // 7. Парсинг ответа
+    if (response)
+	{
+        char* body = strstr(response, "\r\n\r\n");
+        if (body)
+		{
+            body += 4;
+            char* end = body + strcspn(body, "\r\n\t ");
+            size_t len = end - body;
+            ip = malloc(len + 1);
+            if (ip)
+			{
+                strncpy(ip, body, len);
+                ip[len] = '\0';
+            }
+        }
+        free(response);
+    }
+
+    // 8. Очистка ресурсов
+    closesocket(sock);
+    WSACleanup();
+
+    return ip;
 }

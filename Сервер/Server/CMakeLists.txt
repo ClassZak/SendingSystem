@@ -10,12 +10,8 @@ add_executable(
         SendingSystem 
         ${CMAKE_SOURCE_DIR}/src/Server.c
         ${CMAKE_SOURCE_DIR}/src/cJSON.c
-)
-
-target_include_directories(
-        SendingSystem
-        PUBLIC
-        ${CMAKE_SOURCE_DIR}/include
+        ${CMAKE_SOURCE_DIR}/src/Server.h
+        ${CMAKE_SOURCE_DIR}/src/cJSON.h
 )
 
 

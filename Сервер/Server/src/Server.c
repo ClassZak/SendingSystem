@@ -29,8 +29,13 @@ void send_json(SOCKET sock, const char* type, const char* data);
 bool set_socket_timeout(SOCKET sock, int timeout_sec);
 
 static inline void exit_with_error(const char* message, int code);
+static inline void show_server_ip(const char* message, const char* ip);
 
 char* get_global_ip();
+unsigned short connectionPort = 5000;
+char* ipAddressStr = NULL;
+
+
 
 
 
@@ -57,44 +62,43 @@ int main(int argc, char** argv)
 		exit(EXIT_FAILURE);
 	}
 
+
+
 	// Определение IP шлюза
+	ipAddressStr=get_global_ip();
+	if (ipAddressStr == NULL)
 	{
-		char* message="IP сервера: ";
-		char* ipAddressStr=get_global_ip();
-		if (ipAddressStr == NULL)
-		{
-			exit_with_error("Ошибка получения IP", 1);
-			return 1;
-		}
-
-		size_t totalLength=strlen(message)+strlen(ipAddressStr);
-		char* concated = malloc(totalLength + 1);
-		if (!concated)
-		{
-			exit_with_error("Ошибка выделения памяти", 1);
-			return 1;
-		}
-		ZeroMemory(concated, totalLength+1);
-		strcat(concated, message);
-		strcat(concated, ipAddressStr);
-		concated[totalLength]='\0';
-		print_info(concated);
-		free(ipAddressStr);
+		exit_with_error("Ошибка получения IP", 1);
+		return 1;
 	}
-	// Настройка адреса сервера
-	struct sockaddr_in serverAddr;
-	memset(&serverAddr, 0, sizeof(serverAddr));
-	serverAddr.sin_family = AF_INET;
-	serverAddr.sin_port = htons(5000);
-	inet_pton(AF_INET, "127.0.0.1", &serverAddr.sin_addr);
 
-	if (bind(serverSocket, (SOCKADDR*)&serverAddr, sizeof(serverAddr)) == SOCKET_ERROR)
+	show_server_ip("IP сервера: ",ipAddressStr);
+
+	
+
+
+
+	// Настройка адреса и порта сервера
+	do
 	{
-		print_error("Ошибка привязки сокета");
-		closesocket(serverSocket);
-		WSACleanup();
-		exit(EXIT_FAILURE);
+		struct sockaddr_in serverAddr;
+		memset(&serverAddr, 0, sizeof(serverAddr));
+		serverAddr.sin_family = AF_INET;
+		serverAddr.sin_port = htons(connectionPort);
+		inet_pton(AF_INET, "127.0.0.1", &serverAddr.sin_addr);
+
+		if (bind(serverSocket, (SOCKADDR*)&serverAddr, sizeof(serverAddr)) == SOCKET_ERROR)
+		{
+			print_error("Ошибка привязки сокета");
+			closesocket(serverSocket);
+			WSACleanup();
+			exit(EXIT_FAILURE);
+			++connectionPort;
+		}
+		else
+			break;
 	}
+	while (true);
 
 	if (listen(serverSocket, SOMAXCONN) == SOCKET_ERROR)
 	{
@@ -340,4 +344,21 @@ char* get_global_ip()
 	WSACleanup();
 
 	return ip;
+}
+
+
+static inline void show_server_ip(const char* message, const char* ip)
+{
+	size_t totalLength = strlen(message) + strlen(ipAddressStr);
+	char* concated = malloc(totalLength + 1);
+	if (!concated)
+	{
+		exit_with_error("Ошибка выделения памяти", 1);
+		return 1;
+	}
+	ZeroMemory(concated, totalLength + 1);
+	strcat(concated, message);
+	strcat(concated, ipAddressStr);
+	concated[totalLength] = '\0';
+	print_info(concated);
 }

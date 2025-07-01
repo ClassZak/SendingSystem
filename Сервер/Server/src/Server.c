@@ -1,8 +1,13 @@
 ﻿#include <WinSock2.h>
 #include <WS2tcpip.h>
 #include <iphlpapi.h>
+// Только для Visual Studio
 #pragma comment(lib, "Ws2_32.lib")
 #pragma comment(lib, "iphlpapi.lib")
+
+
+#include <stdarg.h>
+
 
 #include <Windows.h>
 #include <locale.h>
@@ -15,24 +20,24 @@
 #define TIMEOUT_SEC 10    // Таймаут в секундах
 
 // ANSI коды цветов
-#define RED "\x1b[31m"
-#define GREEN "\x1b[32m"
-#define YELLOW "\x1b[33m"
-#define RESET "\x1b[0m"
+#define RED_COLOR		"\x1b[31m"
+#define GREEN_COLOR		"\x1b[32m"
+#define YELLOW_COLOR	"\x1b[33m"
+#define RESET_COLOR		"\x1b[0m"
 
 #define HTTP_REQUEST "GET / HTTP/1.1\r\nHost: icanhazip.com\r\nConnection: close\r\n\r\n"
 
-void print_error(const char* message);
-void print_success(const char* message);
-void print_info(const char* message);
+void print_error(	const char* format, ...);
+void print_success(	const char* format, ...);
+void print_info(	const char* format, ...);
 void send_json(SOCKET sock, const char* type, const char* data);
 bool set_socket_timeout(SOCKET sock, int timeout_sec);
 
 static inline void exit_with_error(const char* message, int code);
-static inline void show_server_ip(const char* message, const char* ip);
 
 char* get_global_ip();
 unsigned short connectionPort = 5000;
+const char* connectionIp = "127.0.0.1";
 char* ipAddressStr = NULL;
 
 
@@ -44,7 +49,7 @@ int main(int argc, char** argv)
 	setlocale(LC_ALL, "Ru");
 
 	
-	print_info("Инициализация сервера на 127.0.0.1:5000");
+	print_info("Инициализация сервера\n");
 
 	WSADATA wsaData;
 	int res = WSAStartup(MAKEWORD(2, 2), &wsaData);
@@ -72,7 +77,7 @@ int main(int argc, char** argv)
 		return 1;
 	}
 
-	show_server_ip("IP сервера: ",ipAddressStr);
+	print_info("IP сервера: %s\n",ipAddressStr);
 
 	
 
@@ -108,7 +113,7 @@ int main(int argc, char** argv)
 		exit(EXIT_FAILURE);
 	}
 
-	print_success("Сервер запущен и ожидает подключений");
+	print_success("Сервер запущен и ожидает подключений\n");
 
 	// Принятие подключения
 	SOCKET clientSocket;
@@ -126,7 +131,7 @@ int main(int argc, char** argv)
 	// Вывод IP клиента
 	char clientIP[INET_ADDRSTRLEN];
 	inet_ntop(AF_INET, &clientAddr.sin_addr, clientIP, INET_ADDRSTRLEN);
-	printf(YELLOW "Подключен клиент: %s:%d\n" RESET, clientIP, ntohs(clientAddr.sin_port));
+	printf(YELLOW_COLOR "Подключен клиент: %s:%d\n" RESET_COLOR, clientIP, ntohs(clientAddr.sin_port));
 
 	// Установка таймаута
 	if (!set_socket_timeout(clientSocket, TIMEOUT_SEC))
@@ -192,20 +197,46 @@ bool set_socket_timeout(SOCKET sock, int timeout_sec)
 		(const char*)&tv, sizeof(tv)) == 0;
 }
 
-void print_error(const char* message)
+
+
+
+void print_error(const char* format, ...)
 {
-	fprintf(stderr, RED "[ОШИБКА] %s (код: %d)\n" RESET, message, WSAGetLastError());
+	va_list args;
+
+	printf(RED_COLOR "[ОШИБКА] ");
+
+	va_start(args, format);
+	vprintf(format, args);
+	va_end(args);
+
+	fprintf(stderr, " (код: %d)" RESET_COLOR, WSAGetLastError());
 }
 
-
-void print_success(const char* message)
+void print_success(const char* format, ...)
 {
-	printf(GREEN "[УСПЕХ] %s\n" RESET, message);
+	va_list args;
+
+	printf(GREEN_COLOR "[УСПЕХ] ");
+
+	va_start(args, format);
+	vprintf(format, args);
+	va_end(args);
+
+	printf(RESET_COLOR);
 }
 
-void print_info(const char* message)
+void print_info(const char* format, ...)
 {
-	printf(YELLOW "[ИНФО] %s\n" RESET, message);
+	va_list args;
+
+	printf(YELLOW_COLOR "[ИНФО] ");
+
+	va_start(args, format);
+	vprintf(format, args);
+	va_end(args);
+
+	printf(RESET_COLOR);
 }
 
 
@@ -344,21 +375,4 @@ char* get_global_ip()
 	WSACleanup();
 
 	return ip;
-}
-
-
-static inline void show_server_ip(const char* message, const char* ip)
-{
-	size_t totalLength = strlen(message) + strlen(ipAddressStr);
-	char* concated = malloc(totalLength + 1);
-	if (!concated)
-	{
-		exit_with_error("Ошибка выделения памяти", 1);
-		return 1;
-	}
-	ZeroMemory(concated, totalLength + 1);
-	strcat(concated, message);
-	strcat(concated, ipAddressStr);
-	concated[totalLength] = '\0';
-	print_info(concated);
 }

@@ -41,6 +41,8 @@ const char* connectionIp = "127.0.0.1";
 char* ipAddressStr = NULL;
 
 
+SOCKET* setup_socket(int af, int type, int protocol, struct sockaddr_in* serverAddr, char* ip, unsigned short port);
+
 
 
 
@@ -48,8 +50,6 @@ int main(int argc, char** argv)
 {
 	setlocale(LC_ALL, "Ru");
 
-	
-	print_info("Инициализация сервера\n");
 
 	WSADATA wsaData;
 	int res = WSAStartup(MAKEWORD(2, 2), &wsaData);
@@ -58,14 +58,7 @@ int main(int argc, char** argv)
 		print_error("Ошибка инициализации WinSock");
 		exit(res);
 	}
-
-	SOCKET serverSocket = socket(AF_INET, SOCK_STREAM, 0);
-	if (serverSocket == INVALID_SOCKET)
-	{
-		print_error("Ошибка создания сокета");
-		WSACleanup();
-		exit(EXIT_FAILURE);
-	}
+	print_info("Инициализация сервера\n");
 
 
 
@@ -76,54 +69,43 @@ int main(int argc, char** argv)
 		exit_with_error("Ошибка получения IP", 1);
 		return 1;
 	}
-
 	print_info("IP сервера: %s\n",ipAddressStr);
 
-	
 
 
-
-	// Настройка адреса и порта сервера
+	SOCKET* serverSocket = NULL;
 	do
 	{
 		struct sockaddr_in serverAddr;
-		memset(&serverAddr, 0, sizeof(serverAddr));
-		serverAddr.sin_family = AF_INET;
-		serverAddr.sin_port = htons(connectionPort);
-		inet_pton(AF_INET, "127.0.0.1", &serverAddr.sin_addr);
+		serverSocket = setup_socket(AF_INET, SOCK_STREAM, 0, &serverAddr, connectionIp, connectionPort);
 
-		if (bind(serverSocket, (SOCKADDR*)&serverAddr, sizeof(serverAddr)) == SOCKET_ERROR)
-		{
-			print_error("Ошибка привязки сокета");
-			closesocket(serverSocket);
-			WSACleanup();
-			exit(EXIT_FAILURE);
-			++connectionPort;
-		}
-		else
+		if(serverSocket != NULL)
 			break;
+		++connectionPort;
 	}
 	while (true);
 
-	if (listen(serverSocket, SOMAXCONN) == SOCKET_ERROR)
+
+
+	if (listen(*serverSocket, SOMAXCONN) == SOCKET_ERROR)
 	{
 		print_error("Ошибка прослушивания порта");
-		closesocket(serverSocket);
+		closesocket(*serverSocket);
 		WSACleanup();
 		exit(EXIT_FAILURE);
 	}
 
-	print_success("Сервер запущен и ожидает подключений\n");
+	print_success("Сервер запущен и ожидает подключений по порту %d (%s:%d)\n", connectionPort, connectionIp, connectionPort);
 
 	// Принятие подключения
 	SOCKET clientSocket;
 	struct sockaddr_in clientAddr;
 	int clientAddrSize = sizeof(clientAddr);
 
-	if ((clientSocket = accept(serverSocket, (SOCKADDR*)&clientAddr, &clientAddrSize)) == INVALID_SOCKET)
+	if ((clientSocket = accept(*serverSocket, (SOCKADDR*)&clientAddr, &clientAddrSize)) == INVALID_SOCKET)
 	{
 		print_error("Ошибка принятия подключения");
-		closesocket(serverSocket);
+		closesocket(*serverSocket);
 		WSACleanup();
 		exit(EXIT_FAILURE);
 	}
@@ -183,7 +165,8 @@ int main(int argc, char** argv)
 
 	free(buffer);
 	closesocket(clientSocket);
-	closesocket(serverSocket);
+	closesocket(*serverSocket);
+	free(serverSocket);
 	WSACleanup();
 	return EXIT_SUCCESS;
 }
@@ -210,7 +193,7 @@ void print_error(const char* format, ...)
 	vprintf(format, args);
 	va_end(args);
 
-	fprintf(stderr, " (код: %d)" RESET_COLOR, WSAGetLastError());
+	fprintf(stderr, " (код: %d)\n" RESET_COLOR, WSAGetLastError());
 }
 
 void print_success(const char* format, ...)
@@ -252,35 +235,26 @@ inline void exit_with_error(const char* message, int code)
 
 char* get_global_ip()
 {
-	WSADATA wsaData;
 	SOCKET sock = INVALID_SOCKET;
 	struct addrinfo hints, *result = NULL, *ptr = NULL;
 	char* ip = NULL;
 	char recvbuf[BUFFER_SIZE];
 	int iResult;
 
-	// 1. Инициализация Winsock
-	if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0)
-	{
-		fprintf(stderr, "WSAStartup failed: %d\n", WSAGetLastError());
-		return NULL;
-	}
-
-	// 2. Настройка параметров для getaddrinfo
+	// Настройка параметров для getaddrinfo
 	ZeroMemory(&hints, sizeof(hints));
 	hints.ai_family = AF_INET;
 	hints.ai_socktype = SOCK_STREAM;
 	hints.ai_protocol = IPPROTO_TCP;
 
-	// 3. Разрешение имени хоста
+	// Разрешение имени хоста
 	if ((iResult = getaddrinfo("icanhazip.com", "80", &hints, &result)) != 0)
 	{
 		fprintf(stderr, "getaddrinfo failed: %d\n", iResult);
-		WSACleanup();
 		return NULL;
 	}
 
-	// 4. Перебор возможных адресов и подключение
+	// Перебор возможных адресов и подключение
 	for (ptr = result; ptr != NULL; ptr = ptr->ai_next)
 	{
 		sock = socket(ptr->ai_family, ptr->ai_socktype, ptr->ai_protocol);
@@ -303,21 +277,19 @@ char* get_global_ip()
 
 	if (sock == INVALID_SOCKET)
 	{
-		fprintf(stderr, "Unable to connect to server\n");
-		WSACleanup();
+		fprintf(stderr, "Не удалось подключиться к серверу для выявления IP\n");
 		return NULL;
 	}
 
-	// 5. Отправка HTTP-запроса
+	// Отправка HTTP-запроса
 	if ((iResult = send(sock, HTTP_REQUEST, (int)strlen(HTTP_REQUEST), 0)) == SOCKET_ERROR)
 	{
-		fprintf(stderr, "send failed: %d\n", WSAGetLastError());
+		fprintf(stderr, "Отправка не удалась: %d\n", WSAGetLastError());
 		closesocket(sock);
-		WSACleanup();
 		return NULL;
 	}
 
-	// 6. Получение ответа
+	// Получение ответа
 	int total_received = 0;
 	char* response = NULL;
 	do
@@ -331,7 +303,6 @@ char* get_global_ip()
 			{
 				free(response);
 				closesocket(sock);
-				WSACleanup();
 				return NULL;
 			}
 			response = temp;
@@ -346,12 +317,11 @@ char* get_global_ip()
 			fprintf(stderr, "recv failed: %d\n", WSAGetLastError());
 			free(response);
 			closesocket(sock);
-			WSACleanup();
 			return NULL;
 		}
 	} while (iResult > 0);
 
-	// 7. Парсинг ответа
+	// Парсинг ответа
 	if (response)
 	{
 		char* body = strstr(response, "\r\n\r\n");
@@ -370,9 +340,41 @@ char* get_global_ip()
 		free(response);
 	}
 
-	// 8. Очистка ресурсов
+	// Очистка ресурсов
 	closesocket(sock);
-	WSACleanup();
 
 	return ip;
+}
+
+SOCKET* setup_socket(int af, int type, int protocol, struct sockaddr_in* serverAddr, char* ip, unsigned short port)
+{
+	SOCKET* serverSocket = malloc(sizeof(SOCKET));
+	if (serverSocket == NULL)
+	{
+		print_error("Ошибка выделения памяти для сокета\ns");
+		return NULL;
+	}
+	*serverSocket = socket(af, type, protocol);
+	if (*serverSocket == INVALID_SOCKET)
+	{
+		print_error("Ошибка создания сокета\n");
+		free(serverSocket);
+		return NULL;
+	}
+	// Настройка адреса и порта сервера
+	memset(serverAddr, 0, sizeof(struct sockaddr_in));
+	serverAddr->sin_family = af;
+	inet_pton(af, ip, &serverAddr->sin_addr);
+	serverAddr->sin_port = htons(port);
+
+	if (bind(*serverSocket, serverAddr, sizeof(struct sockaddr_in)) == SOCKET_ERROR)
+	{
+		print_error("Ошибка привязки сокета по порту %d", port);
+		closesocket(*serverSocket);
+		free(serverSocket);
+
+		return NULL;
+	}
+
+	return serverSocket;
 }

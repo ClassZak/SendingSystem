@@ -41,7 +41,8 @@ const char* connectionIp = "127.0.0.1";
 char* ipAddressStr = NULL;
 
 
-SOCKET* setup_socket(int af, int type, int protocol, struct sockaddr_in* serverAddr, char* ip, unsigned short port);
+SOCKET* setup_socket
+(int af, int type, int protocol, struct sockaddr_in* serverAddr, char* ip, unsigned short port);
 
 
 
@@ -95,7 +96,13 @@ int main(int argc, char** argv)
 		exit(EXIT_FAILURE);
 	}
 
-	print_success("Сервер запущен и ожидает подключений по порту %d (%s:%d)\n", connectionPort, connectionIp, connectionPort);
+	print_success
+	(
+		"Сервер запущен и ожидает подключений по порту %d (%s:%d)\n",
+		connectionPort, 
+		connectionIp, 
+		connectionPort
+	);
 
 	// Принятие подключения
 	SOCKET clientSocket;
@@ -346,7 +353,8 @@ char* get_global_ip()
 	return ip;
 }
 
-SOCKET* setup_socket(int af, int type, int protocol, struct sockaddr_in* serverAddr, char* ip, unsigned short port)
+SOCKET* setup_socket
+(int af, int type, int protocol, struct sockaddr_in* serverAddr, char* ip, unsigned short port)
 {
 	SOCKET* serverSocket = malloc(sizeof(SOCKET));
 	if (serverSocket == NULL)

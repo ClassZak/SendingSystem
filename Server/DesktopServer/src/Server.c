@@ -27,9 +27,9 @@
 
 #define HTTP_REQUEST "GET / HTTP/1.1\r\nHost: icanhazip.com\r\nConnection: close\r\n\r\n"
 
-void print_error(	const char* format, ...);
-void print_success(	const char* format, ...);
-void print_info(	const char* format, ...);
+void print_error	(const char* format, ...);
+void print_success	(const char* format, ...);
+void print_info		(const char* format, ...);
 void send_json(SOCKET sock, const char* type, const char* data);
 bool set_socket_timeout(SOCKET sock, int timeout_sec);
 
@@ -100,7 +100,7 @@ int main(int argc, char** argv)
 	(
 		"Сервер запущен и ожидает подключений по порту %d (%s:%d)\n",
 		connectionPort, 
-		connectionIp, 
+		ipAddressStr,
 		connectionPort
 	);
 
@@ -131,7 +131,7 @@ int main(int argc, char** argv)
 	if (buffer==NULL)
 	{
 		print_error("Ошибка выделения памяти");
-		return -1; // Даунская Visual Studio не понимает void exit(int _Code)
+		return -1; // Visual Studio не понимает void exit(int _Code)
 	}
 
 	char* bigBuffer = NULL;

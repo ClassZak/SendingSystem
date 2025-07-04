@@ -18,6 +18,24 @@
 			}
 		},
 		{
+			"name": "win7",
+			"displayName": "Windows 7 Build",
+			"generator": "Ninja",
+			"binaryDir": "${sourceDir}/build",
+			"cacheVariables": {
+				"CMAKE_C_COMPILER": "C:/gcc-10.4.0-no-debug/bin/gcc.exe",
+				"CMAKE_MAKE_PROGRAM": "C:/gcc-10.4.0-no-debug/bin/ninja.exe"
+			},
+			"condition": {
+				"type": "equals",
+				"lhs": "${hostSystemName}",
+				"rhs": "Windows"
+			},
+			"vendor": {
+				"windows7": true
+			}
+		},
+		{
 			"name": "x64-debug",
 			"displayName": "x64 Debug",
 			"inherits": "windows-base",
@@ -60,7 +78,7 @@
 		{
 			"name": "linux-debug",
 			"displayName": "Linux Debug",
-			"generator": "Unix Makefiles",            
+			"generator": "Unix Makefiles",
 			"binaryDir": "${sourceDir}/build",
 			"installDir": "${sourceDir}/build/install/",
 			"cacheVariables": {

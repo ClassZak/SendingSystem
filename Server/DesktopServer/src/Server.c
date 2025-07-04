@@ -114,7 +114,7 @@ int main(int argc, char** argv)
 	// Вывод IP клиента
 	char clientIP[INET_ADDRSTRLEN];
 	inet_ntop(AF_INET, &clientAddr.sin_addr, clientIP, INET_ADDRSTRLEN);
-	printf(YELLOW_COLOR "Подключен клиент: %s:%d\n" RESET_COLOR, clientIP, ntohs(clientAddr.sin_port));
+	printf("Подключен клиент: %s:%d\n", clientIP, ntohs(clientAddr.sin_port));
 
 	// Установка таймаута
 	if (!set_socket_timeout(clientSocket, TIMEOUT_SEC))

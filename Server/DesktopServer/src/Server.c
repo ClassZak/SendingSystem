@@ -35,7 +35,7 @@ const char* connectionIp = "127.0.0.1";
 char* ipAddressStr = NULL;
 
 
-SOCKET* setup_socket
+static inline SOCKET* setup_socket
 (int af, int type, int protocol, struct sockaddr_in* serverAddr, char* ip, unsigned short port);
 
 
@@ -139,7 +139,8 @@ int main(int argc, char** argv)
 		while ((bytesReceived = recv(clientSocket, buffer, BUFFER_SIZE, 0)), bytesReceived > 0)
 		{
 			totalReceived += bytesReceived;
-			if (totalReceived >= BUFFER_SIZE) break;
+			if (totalReceived >= BUFFER_SIZE)
+				break;
 		}
 
 
@@ -177,8 +178,15 @@ bool set_socket_timeout(SOCKET sock, int timeout_sec)
 	struct timeval tv;
 	tv.tv_sec = timeout_sec;
 	tv.tv_usec = 0;
-	return setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO,
-		(const char*)&tv, sizeof(tv)) == 0;
+	return 
+	setsockopt
+	(
+		sock, 
+		SOL_SOCKET, 
+		SO_RCVTIMEO,
+		(const char*)&tv, 
+		sizeof(tv)
+	) == 0;
 }
 
 
@@ -307,7 +315,7 @@ char* get_global_ip()
 	return ip;
 }
 
-SOCKET* setup_socket
+static inline SOCKET* setup_socket
 (int af, int type, int protocol, struct sockaddr_in* serverAddr, char* ip, unsigned short port)
 {
 	SOCKET* serverSocket = malloc(sizeof(SOCKET));

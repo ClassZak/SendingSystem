@@ -15,21 +15,15 @@
 
 #include "Server.h"
 #include "cJSON.h"
+#include "PrintProcedures/PintProcedures.h"
 
-#define BUFFER_SIZE 4096  // Увеличенный буфер
-#define TIMEOUT_SEC 10    // Таймаут в секундах
+#define BUFFER_SIZE 4096
+#define TIMEOUT_SEC 10		// Таймаут в секундах
 
-// ANSI коды цветов
-#define RED_COLOR		"\x1b[31m"
-#define GREEN_COLOR		"\x1b[32m"
-#define YELLOW_COLOR	"\x1b[33m"
-#define RESET_COLOR		"\x1b[0m"
+
 
 #define HTTP_REQUEST "GET / HTTP/1.1\r\nHost: icanhazip.com\r\nConnection: close\r\n\r\n"
 
-void print_error	(const char* format, ...);
-void print_success	(const char* format, ...);
-void print_info		(const char* format, ...);
 void send_json(SOCKET sock, const char* type, const char* data);
 bool set_socket_timeout(SOCKET sock, int timeout_sec);
 
@@ -188,46 +182,6 @@ bool set_socket_timeout(SOCKET sock, int timeout_sec)
 }
 
 
-
-
-void print_error(const char* format, ...)
-{
-	va_list args;
-
-	printf(RED_COLOR "[ОШИБКА] ");
-
-	va_start(args, format);
-	vprintf(format, args);
-	va_end(args);
-
-	fprintf(stderr, " (код: %d)\n" RESET_COLOR, WSAGetLastError());
-}
-
-void print_success(const char* format, ...)
-{
-	va_list args;
-
-	printf(GREEN_COLOR "[УСПЕХ] ");
-
-	va_start(args, format);
-	vprintf(format, args);
-	va_end(args);
-
-	printf(RESET_COLOR);
-}
-
-void print_info(const char* format, ...)
-{
-	va_list args;
-
-	printf(YELLOW_COLOR "[ИНФО] ");
-
-	va_start(args, format);
-	vprintf(format, args);
-	va_end(args);
-
-	printf(RESET_COLOR);
-}
 
 
 

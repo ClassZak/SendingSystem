@@ -26,7 +26,7 @@ add_executable(
 	${CMAKE_SOURCE_DIR}/src/cJSON.c
 	${CMAKE_SOURCE_DIR}/src/Server.h
 	${CMAKE_SOURCE_DIR}/src/cJSON.h
-)
+ "src/PrintProcedures/PintProcedures.h" "src/PrintProcedures/PintProcedures.c")
 
 # Платформенно-специфичные настройки
 if(WIN32)

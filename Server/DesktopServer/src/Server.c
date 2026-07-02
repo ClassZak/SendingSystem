@@ -40,9 +40,12 @@ typedef int SOCKET;
 // ---------- Forward declarations ----------
 bool set_socket_timeout(SOCKET sock, int timeout_sec);
 char* get_global_ip(void);
-static inline SOCKET* setup_socket(int af, int type, int protocol,
-								   struct sockaddr_in* server_addr,
-								   const char* ip, unsigned short port);
+static inline SOCKET* setup_socket
+(
+	int af, int type, int protocol,
+	struct sockaddr_in* server_addr,
+	const char* ip, unsigned short port
+);
 void send_json(SOCKET sock, const char* type, const char* data);
 
 // ---------- Global variables ----------
@@ -59,7 +62,7 @@ int main(int argc, char** argv)
 	int startupResult = WSAStartup(MAKEWORD(2, 2), &wsaData);
 	if (startupResult)
 	{
-		print_error("WinSock initialization failed");
+		print_error("WinSock initialization failed\n");
 		exit(startupResult);
 	}
 	print_info("Server initialization\n");
@@ -69,7 +72,7 @@ int main(int argc, char** argv)
 	char* ipAddressStr = get_global_ip();
 	if (!ipAddressStr)
 	{
-		print_error("Failed to obtain external IP");
+		print_error("Failed to obtain external IP\n");
 		return 1;
 	}
 	print_info("Server external IP: %s\n", ipAddressStr);
@@ -91,7 +94,7 @@ int main(int argc, char** argv)
 
 	if (listen(*serverSocket, SOMAXCONN) == SOCKET_ERROR)
 	{
-		print_error("Listen failed");
+		print_error("Listen failed\n");
 		closesocket(*serverSocket);
 		free(serverSocket);
 #ifdef _WIN32
@@ -111,7 +114,7 @@ int main(int argc, char** argv)
 	if ((clientSocket = accept(*serverSocket, (struct sockaddr*)&clientAddr,
 							   &clientAddrSize)) == INVALID_SOCKET)
 	{
-		print_error("Accept failed");
+		print_error("Accept failed\n");
 		closesocket(*serverSocket);
 		free(serverSocket);
 #ifdef _WIN32
@@ -128,7 +131,7 @@ int main(int argc, char** argv)
 	// Set receive timeout (to avoid hanging forever if client misbehaves)
 	if (!set_socket_timeout(clientSocket, TIMEOUT_SEC))
 	{
-		print_error("Failed to set socket timeout");
+		print_error("Failed to set socket timeout\n");
 	}
 
 	// Data processing loop – read until client closes write side
@@ -146,7 +149,7 @@ int main(int argc, char** argv)
 			char* temp = realloc(bigBuffer, bigBufSize + bytesReceived + 1);
 			if (!temp)
 			{
-				print_error("Memory allocation error");
+				print_error("Memory allocation error\n");
 				free(bigBuffer);
 				bigBuffer = NULL;
 				bigBufSize = 0;
@@ -159,7 +162,7 @@ int main(int argc, char** argv)
 		}
 		else if (bytesReceived == 0)
 		{
-			print_info("Client disconnected");
+			print_info("Client disconnected\n");
 			break;
 		}
 		else
@@ -167,20 +170,20 @@ int main(int argc, char** argv)
 #ifdef _WIN32
 			if (WSAGetLastError() == WSAETIMEDOUT)
 			{
-				print_error("Connection timed out");
+				print_error("Connection timed out\n");
 			}
 			else
 			{
-				print_error("Receive error");
+				print_error("Receive error\n");
 			}
 #else
 			if (errno == EAGAIN || errno == EWOULDBLOCK)
 			{
-				print_error("Connection timed out");
+				print_error("Connection timed out\n");
 			}
 			else
 			{
-				print_error("Receive error");
+				print_error("Receive error\n");
 			}
 #endif
 			break;
@@ -198,24 +201,24 @@ int main(int argc, char** argv)
 			if (cJSON_IsString(typeItem) && cJSON_IsString(dataItem))
 			{
 				printf("[%s]: %s\n", typeItem->valuestring, dataItem->valuestring);
-				send_json(clientSocket, "response", "OK");
+				send_json(clientSocket, "message", "OK");
 			}
 			else
 			{
-				print_error("JSON missing 'type' or 'data' field");
+				print_error("JSON missing 'type' or 'data' field\n");
 				send_json(clientSocket, "error", "Invalid format");
 			}
 			cJSON_Delete(root);
 		}
 		else
 		{
-			print_error("Failed to parse JSON");
+			print_error("Failed to parse JSON\n");
 			send_json(clientSocket, "error", "JSON parse error");
 		}
 	}
 	else
 	{
-		print_error("No data received");
+		print_error("No data received\n");
 	}
 
 	// Cleanup
@@ -375,13 +378,13 @@ static inline SOCKET* setup_socket(int af, int type, int protocol,
 	SOCKET* server_sock = malloc(sizeof(SOCKET));
 	if (!server_sock)
 	{
-		print_error("Memory allocation error for socket");
+		print_error("Memory allocation error for socket\n");
 		return NULL;
 	}
 	*server_sock = socket(af, type, protocol);
 	if (*server_sock == INVALID_SOCKET)
 	{
-		print_error("Socket creation error");
+		print_error("Socket creation error\n");
 		free(server_sock);
 		return NULL;
 	}
@@ -394,7 +397,7 @@ static inline SOCKET* setup_socket(int af, int type, int protocol,
 	if (bind(*server_sock, (struct sockaddr*)server_addr,
 			 sizeof(struct sockaddr_in)) == SOCKET_ERROR)
 	{
-		print_error("Bind failed on port %d", port);
+		print_error("Bind failed on port %d\n", port);
 		closesocket(*server_sock);
 		free(server_sock);
 		return NULL;

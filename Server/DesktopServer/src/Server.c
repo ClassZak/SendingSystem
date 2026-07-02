@@ -1,207 +1,247 @@
-﻿#include <WinSock2.h>
+﻿#include "PrintProcedures/PrintProcedures.h"
+
+#ifdef _WIN32
+#include <WinSock2.h>
 #include <WS2tcpip.h>
 #include <iphlpapi.h>
-// Только для Visual Studio
+#include <Windows.h>
 #pragma comment(lib, "Ws2_32.lib")
 #pragma comment(lib, "iphlpapi.lib")
-
+#else
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <unistd.h>
+#include <netdb.h>
+#include <errno.h>
+#endif
 
 #include <stdarg.h>
-
-
-#include <Windows.h>
 #include <locale.h>
 #include <stdbool.h>
-
-#include "Server.h"
+#include <stdlib.h>
+#include <string.h>
+#include <stdio.h>
 #include "cJSON.h"
-#include "PrintProcedures/PintProcedures.h"
 
+
+// ---------- Constants and macros ----------
 #define BUFFER_SIZE 4096
-#define TIMEOUT_SEC 10		// Таймаут в секундах
-
-
-
+#define TIMEOUT_SEC 50
 #define HTTP_REQUEST "GET / HTTP/1.1\r\nHost: icanhazip.com\r\nConnection: close\r\n\r\n"
 
-void send_json(SOCKET sock, const char* type, const char* data);
+#ifndef _WIN32
+typedef int SOCKET;
+#define closesocket(s) close(s)
+#define INVALID_SOCKET (-1)
+#define SOCKET_ERROR   (-1)
+#endif
+
+// ---------- Forward declarations ----------
 bool set_socket_timeout(SOCKET sock, int timeout_sec);
+char* get_global_ip(void);
+static inline SOCKET* setup_socket(int af, int type, int protocol,
+								   struct sockaddr_in* server_addr,
+								   const char* ip, unsigned short port);
+void send_json(SOCKET sock, const char* type, const char* data);
 
-static inline void exit_with_error(const char* message, int code);
-
-char* get_global_ip();
+// ---------- Global variables ----------
 unsigned short connectionPort = 5000;
-const char* connectionIp = "127.0.0.1";
-char* ipAddressStr = NULL;
+const char* connectionIp = "0.0.0.0";
 
-
-static inline SOCKET* setup_socket
-(int af, int type, int protocol, struct sockaddr_in* serverAddr, char* ip, unsigned short port);
-
-
-
-
-int main(int argc, char** argv) 
+// ---------- Main ----------
+int main(int argc, char** argv)
 {
-	setlocale(LC_ALL, "Ru");
+	setlocale(LC_ALL, "Russian");
 
-
+#ifdef _WIN32
 	WSADATA wsaData;
-	int res = WSAStartup(MAKEWORD(2, 2), &wsaData);
-	if (res)
+	int startupResult = WSAStartup(MAKEWORD(2, 2), &wsaData);
+	if (startupResult)
 	{
-		print_error("Ошибка инициализации WinSock");
-		exit(res);
+		print_error("WinSock initialization failed");
+		exit(startupResult);
 	}
-	print_info("Инициализация сервера\n");
+	print_info("Server initialization\n");
+#endif
 
-
-
-	// Определение IP шлюза
-	ipAddressStr=get_global_ip();
-	if (ipAddressStr == NULL)
+	// Determine external IP (informational only)
+	char* ipAddressStr = get_global_ip();
+	if (!ipAddressStr)
 	{
-		exit_with_error("Ошибка получения IP", 1);
+		print_error("Failed to obtain external IP");
 		return 1;
 	}
-	print_info("IP сервера: %s\n",ipAddressStr);
+	print_info("Server external IP: %s\n", ipAddressStr);
 
-
-
+	// Find an available port starting from connectionPort
 	SOCKET* serverSocket = NULL;
+	struct sockaddr_in serverAddr;
 	do
 	{
-		struct sockaddr_in serverAddr;
-		serverSocket = setup_socket(AF_INET, SOCK_STREAM, 0, &serverAddr, connectionIp, connectionPort);
-
-		if(serverSocket != NULL)
+		serverSocket = setup_socket(AF_INET, SOCK_STREAM, 0,
+									&serverAddr, connectionIp, connectionPort);
+		if (serverSocket != NULL)
+		{
 			break;
+		}
 		++connectionPort;
 	}
 	while (true);
 
-
-
 	if (listen(*serverSocket, SOMAXCONN) == SOCKET_ERROR)
 	{
-		print_error("Ошибка прослушивания порта");
+		print_error("Listen failed");
 		closesocket(*serverSocket);
+		free(serverSocket);
+#ifdef _WIN32
 		WSACleanup();
+#endif
 		exit(EXIT_FAILURE);
 	}
 
-	print_success
-	(
-		"Сервер запущен и ожидает подключений по порту %d (%s:%d)\n",
-		connectionPort, 
-		ipAddressStr,
-		connectionPort
-	);
+	print_success("Server started and waiting for connections on port %d (%s:%d)\n",
+				  connectionPort, ipAddressStr, connectionPort);
+	free(ipAddressStr);
 
-	// Принятие подключения
+	// Accept one connection
 	SOCKET clientSocket;
 	struct sockaddr_in clientAddr;
-	int clientAddrSize = sizeof(clientAddr);
-
-	if ((clientSocket = accept(*serverSocket, (SOCKADDR*)&clientAddr, &clientAddrSize)) == INVALID_SOCKET)
+	socklen_t clientAddrSize = sizeof(clientAddr);
+	if ((clientSocket = accept(*serverSocket, (struct sockaddr*)&clientAddr,
+							   &clientAddrSize)) == INVALID_SOCKET)
 	{
-		print_error("Ошибка принятия подключения");
+		print_error("Accept failed");
 		closesocket(*serverSocket);
+		free(serverSocket);
+#ifdef _WIN32
 		WSACleanup();
+#endif
 		exit(EXIT_FAILURE);
 	}
 
-	// Вывод IP клиента
+	// Print client IP
 	char clientIP[INET_ADDRSTRLEN];
 	inet_ntop(AF_INET, &clientAddr.sin_addr, clientIP, INET_ADDRSTRLEN);
-	printf("Подключен клиент: %s:%d\n", clientIP, ntohs(clientAddr.sin_port));
+	printf("Client connected: %s:%d\n", clientIP, ntohs(clientAddr.sin_port));
 
-	// Установка таймаута
+	// Set receive timeout (to avoid hanging forever if client misbehaves)
 	if (!set_socket_timeout(clientSocket, TIMEOUT_SEC))
-		print_error("Ошибка установки таймаута");
-
-	// Обработка данных
-	char* buffer = malloc(BUFFER_SIZE);
-	if (buffer==NULL)
 	{
-		print_error("Ошибка выделения памяти");
-		return -1; // Visual Studio не понимает void exit(int _Code)
+		print_error("Failed to set socket timeout");
 	}
 
+	// Data processing loop – read until client closes write side
+	size_t bigBufSize = 0;
 	char* bigBuffer = NULL;
+
 	while (1)
 	{
-		int totalReceived = 0;
-		int bytesReceived;
+		char chunk[BUFFER_SIZE];
+		int bytesReceived = recv(clientSocket, chunk, BUFFER_SIZE - 1, 0);
 
-		// Чтение больших данных
-
-		while ((bytesReceived = recv(clientSocket, buffer, BUFFER_SIZE, 0)), bytesReceived > 0)
+		if (bytesReceived > 0)
 		{
-			totalReceived += bytesReceived;
-			if (totalReceived >= BUFFER_SIZE)
+			// Append to dynamic buffer
+			char* temp = realloc(bigBuffer, bigBufSize + bytesReceived + 1);
+			if (!temp)
+			{
+				print_error("Memory allocation error");
+				free(bigBuffer);
+				bigBuffer = NULL;
+				bigBufSize = 0;
 				break;
+			}
+			bigBuffer = temp;
+			memcpy(bigBuffer + bigBufSize, chunk, bytesReceived);
+			bigBufSize += bytesReceived;
+			bigBuffer[bigBufSize] = '\0';
 		}
-
-
-		if (bytesReceived <= 0)
+		else if (bytesReceived == 0)
 		{
-			if (bytesReceived == 0)
-				print_info("Клиент отключился");
-			else if (WSAGetLastError() == WSAETIMEDOUT)
-				print_error("Таймаут соединения");
+			print_info("Client disconnected");
 			break;
 		}
-
-		// Парсинг JSON
-		cJSON* root = cJSON_Parse(buffer);
-		if (!root)
+		else
 		{
-			print_error("Получен некорректный JSON");
-			continue;
+#ifdef _WIN32
+			if (WSAGetLastError() == WSAETIMEDOUT)
+			{
+				print_error("Connection timed out");
+			}
+			else
+			{
+				print_error("Receive error");
+			}
+#else
+			if (errno == EAGAIN || errno == EWOULDBLOCK)
+			{
+				print_error("Connection timed out");
+			}
+			else
+			{
+				print_error("Receive error");
+			}
+#endif
+			break;
 		}
-
-		// Обработка сообщения...
-		cJSON_Delete(root);
 	}
 
-	free(buffer);
+	// Process the complete received data (should be one JSON object)
+	if (bigBuffer && bigBufSize > 0)
+	{
+		cJSON* root = cJSON_Parse(bigBuffer);
+		if (root)
+		{
+			cJSON* typeItem = cJSON_GetObjectItem(root, "type");
+			cJSON* dataItem = cJSON_GetObjectItem(root, "data");
+			if (cJSON_IsString(typeItem) && cJSON_IsString(dataItem))
+			{
+				printf("[%s]: %s\n", typeItem->valuestring, dataItem->valuestring);
+				send_json(clientSocket, "response", "OK");
+			}
+			else
+			{
+				print_error("JSON missing 'type' or 'data' field");
+				send_json(clientSocket, "error", "Invalid format");
+			}
+			cJSON_Delete(root);
+		}
+		else
+		{
+			print_error("Failed to parse JSON");
+			send_json(clientSocket, "error", "JSON parse error");
+		}
+	}
+	else
+	{
+		print_error("No data received");
+	}
+
+	// Cleanup
+	free(bigBuffer);
 	closesocket(clientSocket);
 	closesocket(*serverSocket);
 	free(serverSocket);
+#ifdef _WIN32
 	WSACleanup();
+#endif
+
 	return EXIT_SUCCESS;
 }
 
+// ---------- Set socket timeout ----------
 bool set_socket_timeout(SOCKET sock, int timeout_sec)
 {
 	struct timeval tv;
 	tv.tv_sec = timeout_sec;
 	tv.tv_usec = 0;
-	return 
-	setsockopt
-	(
-		sock, 
-		SOL_SOCKET, 
-		SO_RCVTIMEO,
-		(const char*)&tv, 
-		sizeof(tv)
-	) == 0;
+
+	return setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO,
+					  (const char*)&tv, sizeof(tv)) == 0;
 }
 
-
-
-
-
-
-inline void exit_with_error(const char* message, int code)
-{
-	print_error(message);
-	exit(code);
-}
-
-
-
+// ---------- Obtain global IP via icanhazip.com ----------
 char* get_global_ip()
 {
 	SOCKET sock = INVALID_SOCKET;
@@ -210,29 +250,33 @@ char* get_global_ip()
 	char recvbuf[BUFFER_SIZE];
 	int iResult;
 
-	// Настройка параметров для getaddrinfo
+#ifdef _WIN32
 	ZeroMemory(&hints, sizeof(hints));
+#else
+	memset(&hints, 0, sizeof(hints));
+#endif
 	hints.ai_family = AF_INET;
 	hints.ai_socktype = SOCK_STREAM;
 	hints.ai_protocol = IPPROTO_TCP;
 
-	// Разрешение имени хоста
 	if ((iResult = getaddrinfo("icanhazip.com", "80", &hints, &result)) != 0)
 	{
 		fprintf(stderr, "getaddrinfo failed: %d\n", iResult);
 		return NULL;
 	}
 
-	// Перебор возможных адресов и подключение
 	for (ptr = result; ptr != NULL; ptr = ptr->ai_next)
 	{
 		sock = socket(ptr->ai_family, ptr->ai_socktype, ptr->ai_protocol);
 		if (sock == INVALID_SOCKET)
 		{
+#ifdef _WIN32
 			fprintf(stderr, "socket failed: %d\n", WSAGetLastError());
+#else
+			print_error("socket failed: %d\t%s\n", errno, strerror(errno));
+#endif
 			continue;
 		}
-
 		if (connect(sock, ptr->ai_addr, (int)ptr->ai_addrlen) == SOCKET_ERROR)
 		{
 			closesocket(sock);
@@ -246,19 +290,22 @@ char* get_global_ip()
 
 	if (sock == INVALID_SOCKET)
 	{
-		fprintf(stderr, "Не удалось подключиться к серверу для выявления IP\n");
+		fprintf(stderr, "Failed to connect to receive the IP\n");
 		return NULL;
 	}
 
-	// Отправка HTTP-запроса
 	if ((iResult = send(sock, HTTP_REQUEST, (int)strlen(HTTP_REQUEST), 0)) == SOCKET_ERROR)
 	{
-		fprintf(stderr, "Отправка не удалась: %d\n", WSAGetLastError());
+#ifdef _WIN32
+		fprintf(stderr, "Send failed: %d\n", WSAGetLastError());
+#else
+		print_error("Sending failed: %d\t%s\n", errno, strerror(errno));
+#endif
 		closesocket(sock);
 		return NULL;
 	}
 
-	// Получение ответа
+	// Receive response
 	int total_received = 0;
 	char* response = NULL;
 	do
@@ -280,17 +327,23 @@ char* get_global_ip()
 			response[total_received] = '\0';
 		}
 		else if (iResult == 0)
+		{
 			break;
+		}
 		else
 		{
+#ifdef _WIN32
 			fprintf(stderr, "recv failed: %d\n", WSAGetLastError());
+#else
+			print_error("Receiving failed: %d\t%s\n", errno, strerror(errno));
+#endif
 			free(response);
 			closesocket(sock);
 			return NULL;
 		}
-	} while (iResult > 0);
+	}
+	while (iResult > 0);
 
-	// Парсинг ответа
 	if (response)
 	{
 		char* body = strstr(response, "\r\n\r\n");
@@ -309,42 +362,59 @@ char* get_global_ip()
 		free(response);
 	}
 
-	// Очистка ресурсов
 	closesocket(sock);
 
 	return ip;
 }
 
-static inline SOCKET* setup_socket
-(int af, int type, int protocol, struct sockaddr_in* serverAddr, char* ip, unsigned short port)
+// ---------- Socket creation and binding ----------
+static inline SOCKET* setup_socket(int af, int type, int protocol,
+								   struct sockaddr_in* server_addr,
+								   const char* ip, unsigned short port)
 {
-	SOCKET* serverSocket = malloc(sizeof(SOCKET));
-	if (serverSocket == NULL)
+	SOCKET* server_sock = malloc(sizeof(SOCKET));
+	if (!server_sock)
 	{
-		print_error("Ошибка выделения памяти для сокета\ns");
+		print_error("Memory allocation error for socket");
 		return NULL;
 	}
-	*serverSocket = socket(af, type, protocol);
-	if (*serverSocket == INVALID_SOCKET)
+	*server_sock = socket(af, type, protocol);
+	if (*server_sock == INVALID_SOCKET)
 	{
-		print_error("Ошибка создания сокета\n");
-		free(serverSocket);
-		return NULL;
-	}
-	// Настройка адреса и порта сервера
-	memset(serverAddr, 0, sizeof(struct sockaddr_in));
-	serverAddr->sin_family = af;
-	inet_pton(af, ip, &serverAddr->sin_addr);
-	serverAddr->sin_port = htons(port);
-
-	if (bind(*serverSocket, serverAddr, sizeof(struct sockaddr_in)) == SOCKET_ERROR)
-	{
-		print_error("Ошибка привязки сокета по порту %d", port);
-		closesocket(*serverSocket);
-		free(serverSocket);
-
+		print_error("Socket creation error");
+		free(server_sock);
 		return NULL;
 	}
 
-	return serverSocket;
+	memset(server_addr, 0, sizeof(struct sockaddr_in));
+	server_addr->sin_family = af;
+	inet_pton(af, ip, &server_addr->sin_addr);
+	server_addr->sin_port = htons(port);
+
+	if (bind(*server_sock, (struct sockaddr*)server_addr,
+			 sizeof(struct sockaddr_in)) == SOCKET_ERROR)
+	{
+		print_error("Bind failed on port %d", port);
+		closesocket(*server_sock);
+		free(server_sock);
+		return NULL;
+	}
+
+	return server_sock;
 }
+
+// ---------- Send JSON response ----------
+void send_json(SOCKET sock, const char* type, const char* data)
+{
+	cJSON* root = cJSON_CreateObject();
+	cJSON_AddStringToObject(root, "type", type);
+	cJSON_AddStringToObject(root, "data", data);
+	char* jsonStr = cJSON_PrintUnformatted(root);
+	if (jsonStr)
+	{
+		send(sock, jsonStr, (int)strlen(jsonStr), 0);
+		free(jsonStr);
+	}
+	cJSON_Delete(root);
+}
+

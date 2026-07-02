@@ -10,10 +10,79 @@
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Hello World!"
+        android:text="@string/sending_system"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/button" />
+
+    <EditText
+        android:id="@+id/editTextServerPort"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="28dp"
+        android:autofillHints="1-65536"
+        android:ems="10"
+        android:inputType="number"
+        android:text="@string/server_port"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/editTextServerIP"
+        tools:ignore="LabelFor" />
+
+    <EditText
+        android:id="@+id/editTextServerIP"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:autofillHints="192.168.1.2"
+        android:ems="10"
+        android:inputType="text"
+        android:text="@string/server_ip"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        tools:ignore="LabelFor" />
+
+    <EditText
+        android:layout_marginTop="28dp"
+        android:id="@+id/editTextSendingData"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:autofillHints="something"
+        android:ems="10"
+        android:inputType="text"
+        android:text="@string/sending_data"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/editTextServerPort"
+        tools:ignore="LabelFor" />
+
+    <CheckBox
+        android:id="@+id/checkBoxIPv4"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/ipv4"
+        android:checked="true"
+        app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent" />
+
+    <CheckBox
+        android:id="@+id/checkBoxIPv6"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/ipv6"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/checkBoxIPv4" />
+
+    <Button
+        android:id="@+id/button"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="28dp"
+        android:text="@string/send"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/editTextSendingData" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>

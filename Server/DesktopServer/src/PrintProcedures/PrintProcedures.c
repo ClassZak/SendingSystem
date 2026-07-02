@@ -1,4 +1,8 @@
-#include "PintProcedures.h"
+#include "PrintProcedures.h"
+#ifndef _WIN32
+#include <errno.h>
+#include <string.h>
+#endif
 
 void print_error(const char* format, ...)
 {
@@ -9,16 +13,20 @@ void print_error(const char* format, ...)
 	va_list args;
 
 #ifndef _WIN32
-	printf(RED_COLOR "[Œÿ»¡ ¿] ");
+	fprintf(stderr, RED_COLOR "[ERROR] ");
 #else
-	printf("[Œÿ»¡ ¿] ");
+	printf("[ERROR] ");
 #endif
 
 	va_start(args, format);
 	vprintf(format, args);
 	va_end(args);
 
-	fprintf(stderr, " (ÍÓ‰: %d)\n", WSAGetLastError());
+#ifdef _WIN32
+	fprintf(stderr, "\nCode : %d)\n", GetLastError());
+#else
+	fprintf(stderr, "\nCode: %d\t%s\n", errno, strerror(errno));
+#endif
 
 #ifndef _WIN32
 	printf(RESET_COLOR);
@@ -36,9 +44,9 @@ void print_success(const char* format, ...)
 	va_list args;
 
 #ifndef _WIN32
-	printf(GREEN_COLOR "[”—œ≈’] ");
+	printf(GREEN_COLOR "[SUCCESS] ");
 #else
-	printf("[”—œ≈’] ");
+	printf("[SUCCESS] ");
 #endif
 	va_start(args, format);
 	vprintf(format, args);
@@ -60,9 +68,9 @@ void print_info(const char* format, ...)
 	va_list args;
 
 #ifndef _WIN32
-	printf(YELLOW_COLOR "[»Õ‘Œ] ");
+	printf(YELLOW_COLOR "[INFO] ");
 #else
-	printf("[»Õ‘Œ] ");
+	printf("[INFO] ");
 #endif
 	va_start(args, format);
 	vprintf(format, args);

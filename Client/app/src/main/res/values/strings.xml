@@ -7,4 +7,6 @@
     <string name="ipv6">IPv6</string>
     <string name="send">Send</string>
     <string name="server_port">Server port</string>
+    <string name="default_port">5000</string>
+    <string name="default_server">192.168.1.2</string>
 </resources>

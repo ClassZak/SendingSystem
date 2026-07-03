@@ -38,6 +38,8 @@ add_executable(
 	${CMAKE_SOURCE_DIR}/src/PrintProcedures/PrintProcedures.c
 	${CMAKE_SOURCE_DIR}/src/FileService/FileService.h
 	${CMAKE_SOURCE_DIR}/src/FileService/FileService.c
+	${CMAKE_SOURCE_DIR}/src/Base64/Base64.h
+	${CMAKE_SOURCE_DIR}/src/Base64/Base64.c
 )
 
 # Платформенно-специфичные настройки

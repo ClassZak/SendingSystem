@@ -1,5 +1,6 @@
 ﻿#include "PrintProcedures/PrintProcedures.h"
 #include "FileService/FileService.h"
+#include "Base64/Base64.h"
 
 #ifdef _WIN32
 #include <WinSock2.h>
@@ -30,7 +31,7 @@
 // ---------- Constants and macros ----------
 #define BUFFER_SIZE 4096
 #define TIMEOUT_SEC 50
-#define MAX_MESSAGE_SIZE 0x100000
+#define MAX_MESSAGE_SIZE 0x6400000
 #define HTTP_REQUEST "GET / HTTP/1.1\r\nHost: icanhazip.com\r\nConnection: close\r\n\r\n"
 
 #ifndef _WIN32
@@ -196,14 +197,16 @@ int main(int argc, char** argv)
 			cJSON* typeItem		= cJSON_GetObjectItem(root, "type");
 			cJSON* dataItem		= cJSON_GetObjectItem(root, "data");
 			cJSON* saveToPath	= cJSON_GetObjectItem(root, "saveToPath");
-			if (cJSON_IsString(typeItem) && cJSON_IsString(dataItem) && !cJSON_IsString(saveToPath))
+			if (cJSON_IsString(typeItem) && cJSON_IsString(dataItem) && (!cJSON_IsString(saveToPath) || saveToPath->valuestring[0]=='\0'))
 			{
 				printf("[%s]: %s\n", typeItem->valuestring, dataItem->valuestring);
 				send_json(clientSocket, "message", "OK");
 			}
 			else if (cJSON_IsString(typeItem) && cJSON_IsString(dataItem) && cJSON_IsString(saveToPath))
 			{
-				if (strcmp(typeItem->valuestring, "RAW_DATA") == 0)
+				const char *type = typeItem->valuestring;
+				const char *data = dataItem->valuestring;
+				if (strcmp(type, "RAW_DATA") == 0)
 					printf("[%s]: %s\n", typeItem->valuestring, dataItem->valuestring);
 
 
@@ -219,7 +222,7 @@ int main(int argc, char** argv)
 				snprintf(full_path, sizeof(full_path), "%s/%s", SAVE_DIR, safe_name);
 				int max_length = MAX_FILENAME + SAVE_DIR_LENGTH + 2;
 				int filename_length = SAVE_DIR_LENGTH + 1 + strlen(safe_name) + 1;
-				full_path[max_length < filename_length ? max_length : filename_length]= '\0';
+				full_path[max_length < filename_length ? max_length : filename_length] = '\0';
 
 				FILE* file = fopen(full_path, "wb");
 				if (!file)
@@ -229,10 +232,51 @@ int main(int argc, char** argv)
 				}
 				else
 				{
-					fputs(dataItem->valuestring, file);
-					fclose(file);
-					print_info("Saved to %s\n", full_path);
-					send_json(clientSocket, "message", "File saved");
+					if (strcmp(type, "RAW_DATA") == 0)
+					{
+						fputs(data, file);
+						fclose(file);
+						printf("[%s] saved to %s\n", type, full_path);
+						send_json(clientSocket, "message", "File saved");
+					}
+					else if (strcmp(type, "FILE") == 0)
+					{
+						// Decode Base64 binary data
+						size_t b64_len = strlen(data);
+						unsigned char *binary = (unsigned char *)malloc(b64_len);
+						if (binary)
+						{
+							int decoded_len = base64_decode(data, binary, b64_len);
+							if (decoded_len > 0)
+							{
+								fwrite(binary, 1, decoded_len, file);
+								fclose(file);
+								printf("[%s] saved binary file, %d bytes\n", type, decoded_len);
+								send_json(clientSocket, "message", "File saved");
+							}
+							else
+							{
+								fclose(file);
+								print_error("Base64 decode failed\n");
+								send_json(clientSocket, "error", "Base64 decode failed");
+							}
+							free(binary);
+						}
+						else
+						{
+							fclose(file);
+							print_error("Memory allocation error\n");
+							send_json(clientSocket, "error", "Memory error");
+						}
+					}
+					else
+					{
+						// Unknown type. Save the file
+						fputs(data, file);
+						fclose(file);
+						printf("[%s] saved to %s\n", type, full_path);
+						send_json(clientSocket, "message", "File saved");
+					}
 				}
 			}
 			else

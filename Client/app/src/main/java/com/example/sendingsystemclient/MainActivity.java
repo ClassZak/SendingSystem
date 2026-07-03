@@ -1,16 +1,23 @@
 package com.example.sendingsystemclient;
 
+import android.content.Intent;
+import android.database.Cursor;
+import android.net.Uri;
 import android.os.Bundle;
+import android.provider.OpenableColumns;
+import android.util.Base64;
 import android.view.View;
-import android.widget.AdapterView;
-import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.CheckBox;
 import android.widget.EditText;
-import android.widget.Spinner;
+import android.widget.LinearLayout;
+import android.widget.RadioButton;
+import android.widget.RadioGroup;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.activity.EdgeToEdge;
+import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
@@ -20,11 +27,13 @@ import com.example.sendingsystemclient.dto.Connector;
 import com.example.sendingsystemclient.dto.IPVersion;
 import com.example.sendingsystemclient.dto.SendingType;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.lang.reflect.Array;
-import java.util.Arrays;
+import java.io.InputStream;
 
 public class MainActivity extends AppCompatActivity {
+
+    private static final int REQUEST_CODE_PICK_FILE = 1001;
 
     private EditText editTextServerIP;
     private EditText editTextServerPort;
@@ -32,8 +41,15 @@ public class MainActivity extends AppCompatActivity {
     private EditText editTextSaveToPath;
     private CheckBox checkBoxIPv4;
     private CheckBox checkBoxIPv6;
-    private Spinner spinnerSendingType;
     private Button buttonSend;
+
+    private RadioGroup radioGroupSource;
+    private RadioButton radioText;
+    private RadioButton radioFile;
+    private LinearLayout layoutFilePicker;
+    private TextView textFileName;
+
+    private byte[] fileBytes;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -46,25 +62,63 @@ public class MainActivity extends AppCompatActivity {
             return insets;
         });
 
-        // Инициализация View
         editTextServerIP = findViewById(R.id.editTextServerIP);
         editTextServerPort = findViewById(R.id.editTextServerPort);
         editTextSendingData = findViewById(R.id.editTextSendingData);
         editTextSaveToPath = findViewById(R.id.editTextSaveToPath);
         checkBoxIPv4 = findViewById(R.id.checkBoxIPv4);
         checkBoxIPv6 = findViewById(R.id.checkBoxIPv6);
-        spinnerSendingType = findViewById(R.id.spinnerSendingType);
         buttonSend = findViewById(R.id.button);
 
-        setUpListeners();
+        radioGroupSource = findViewById(R.id.radioGroupSource);
+        radioText = findViewById(R.id.radioText);
+        radioFile = findViewById(R.id.radioFile);
+        layoutFilePicker = findViewById(R.id.layoutFilePicker);
+        textFileName = findViewById(R.id.textFileName);
 
-        String[] sendingTypes = Arrays.stream(SendingType.values())
-                .map(SendingType::name)
-                .toArray(String[]::new);
-        ArrayAdapter<String> adapter = new ArrayAdapter(this, android.R.layout.simple_spinner_item, sendingTypes);
-        adapter.setDropDownViewResource(android.R.layout.simple_spinner_item);
-        spinnerSendingType.setAdapter(adapter);
-        spinnerSendingType.setSelection(0);
+        setUpListeners();
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == REQUEST_CODE_PICK_FILE && resultCode == RESULT_OK && data != null) {
+            Uri uri = data.getData();
+            if (uri != null) {
+                try (InputStream inputStream = getContentResolver().openInputStream(uri)) {
+                    ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+                    byte[] chunk = new byte[4096];
+                    int n;
+                    while ((n = inputStream.read(chunk)) != -1) {
+                        buffer.write(chunk, 0, n);
+                    }
+                    fileBytes = buffer.toByteArray();
+                    String fileName = getFileName(uri);
+                    textFileName.setText(fileName != null ? fileName : "selected file");
+                    Toast.makeText(this, "File loaded (" + fileBytes.length + " bytes)", Toast.LENGTH_SHORT).show();
+                } catch (IOException e) {
+                    Toast.makeText(this, "Failed to read file: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                }
+            }
+        }
+    }
+
+    private String getFileName(Uri uri) {
+        String result = null;
+        if (uri.getScheme().equals("content")) {
+            try (Cursor cursor = getContentResolver().query(uri, null, null, null, null)) {
+                if (cursor != null && cursor.moveToFirst()) {
+                    int nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME);
+                    if (nameIndex >= 0) {
+                        result = cursor.getString(nameIndex);
+                    }
+                }
+            }
+        }
+        if (result == null) {
+            result = uri.getLastPathSegment();
+        }
+        return result;
     }
 
     private void setUpListeners() {
@@ -75,26 +129,37 @@ public class MainActivity extends AppCompatActivity {
             if (isChecked) checkBoxIPv4.setChecked(false);
         });
 
-        // Sending button listener
+        radioGroupSource.setOnCheckedChangeListener((group, checkedId) -> {
+            if (checkedId == R.id.radioText) {
+                editTextSendingData.setVisibility(View.VISIBLE);
+                layoutFilePicker.setVisibility(View.GONE);
+            } else {
+                editTextSendingData.setVisibility(View.GONE);
+                layoutFilePicker.setVisibility(View.VISIBLE);
+            }
+        });
+
+        Button buttonBrowseFile = findViewById(R.id.buttonBrowseFile);
+        buttonBrowseFile.setOnClickListener(v -> {
+            Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+            intent.addCategory(Intent.CATEGORY_OPENABLE);
+            intent.setType("*/*");
+            startActivityForResult(intent, REQUEST_CODE_PICK_FILE);
+        });
+
         buttonSend.setOnClickListener(v -> onSendClicked());
     }
 
     private void onSendClicked() {
         String ip = editTextServerIP.getText().toString().trim();
         String portStr = editTextServerPort.getText().toString().trim();
-        String data = editTextSendingData.getText().toString().trim();
         String saveToPath = editTextSaveToPath.getText().toString().trim();
 
-        // Port validation
         int port;
         try {
             port = Integer.parseInt(portStr);
             if (port < 1 || port > 65535) {
-                Toast.makeText(
-                        this,
-                        "The port must be between 1 and 65535",
-                        Toast.LENGTH_SHORT
-                ).show();
+                Toast.makeText(this, "The port must be between 1 and 65535", Toast.LENGTH_SHORT).show();
                 return;
             }
         } catch (NumberFormatException e) {
@@ -102,51 +167,57 @@ public class MainActivity extends AppCompatActivity {
             return;
         }
 
-        // calculate IP version by checkboxes
         IPVersion ipVersion = checkBoxIPv4.isChecked() ? IPVersion.IPv4 : IPVersion.IPv6;
-
-        // IP address verify
         if (!Connector.isValidInetAddress(ip, ipVersion)) {
             Toast.makeText(this, "Wrong IP-address: " + ip, Toast.LENGTH_SHORT).show();
             return;
         }
 
+        boolean isFileMode = radioFile.isChecked();
+        String dataToSend;
+        SendingType sendingType;
+
+        if (isFileMode) {
+            if (fileBytes == null || fileBytes.length == 0) {
+                Toast.makeText(this, "Choose a file first", Toast.LENGTH_SHORT).show();
+                return;
+            }
+            dataToSend = Base64.encodeToString(fileBytes, Base64.NO_WRAP);
+            sendingType = SendingType.FILE;
+        } else {
+            String text = editTextSendingData.getText().toString().trim();
+            if (text.isEmpty()) {
+                Toast.makeText(this, "Enter text", Toast.LENGTH_SHORT).show();
+                return;
+            }
+            dataToSend = text;
+            sendingType = SendingType.RAW_DATA;
+        }
+
         Connector connector = new Connector();
         connector.serverIp = ip;
         connector.serverPort = port;
-        connector.sendingType =
-                this.spinnerSendingType.getSelectedItem() == SendingType.RAW_DATA.toString() ?
-                        SendingType.RAW_DATA : SendingType.FILE;
-        connector.sendingData = data;
+        connector.sendingType = sendingType;
+        connector.sendingData = dataToSend;
         connector.ipVersion = ipVersion;
-        connector.setSaveToPath(saveToPath);
+        if (!saveToPath.isEmpty())
+            connector.setSaveToPath(Connector.sanitizeFilename(saveToPath));
+        else
+            connector.setSaveToPath(null);
 
-        // Send in new thread (free UI thread)
         new Thread(() -> {
             try {
                 String response = connector.sendData();
                 runOnUiThread(() ->
-                        Toast.makeText(
-                            MainActivity.this,
-                            "Response: " + response,
-                            Toast.LENGTH_LONG
-                        ).show()
+                        Toast.makeText(MainActivity.this, "Response: " + response, Toast.LENGTH_LONG).show()
                 );
             } catch (IOException | org.json.JSONException e) {
                 runOnUiThread(() ->
-                    Toast.makeText(
-                        MainActivity.this,
-                        "Sending error: " + e.getMessage(),
-                        Toast.LENGTH_LONG
-                    ).show()
+                        Toast.makeText(MainActivity.this, "Sending error: " + e.getMessage(), Toast.LENGTH_LONG).show()
                 );
             } catch (Exception e) {
                 runOnUiThread(() ->
-                    Toast.makeText(
-                        MainActivity.this,
-                        "Error: " + e.getMessage(),
-                        Toast.LENGTH_LONG
-                    ).show()
+                        Toast.makeText(MainActivity.this, "Error: " + e.getMessage(), Toast.LENGTH_LONG).show()
                 );
             }
         }).start();

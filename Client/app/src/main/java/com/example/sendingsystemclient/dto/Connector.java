@@ -22,7 +22,7 @@ public class Connector {
     public String sendingData = "";
     public SendingType sendingType = SendingType.RAW_DATA;
     @Nullable
-    private String saveToPath;
+    private String saveToPath = null;
     public void setSaveToPath(String saveToPath) {
         this.saveToPath = sanitizeFilename(saveToPath);
     }
@@ -67,7 +67,7 @@ public class Connector {
         }
     }
     public static String sanitizeFilename(String input) {
-        if (input == null || input.isEmpty()) return "unnamed.dat";
+        if (input == null || input.isEmpty()) return "";
         String safe = input.replaceAll("[^a-zA-Z0-9._-]", "_");
         safe = safe.replaceAll("\\.{2,}", "_");
         safe = safe.replaceFirst("^\\.", "");

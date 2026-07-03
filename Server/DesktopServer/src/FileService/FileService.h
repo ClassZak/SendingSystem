@@ -5,7 +5,11 @@
 
 
 #include <stddef.h>
-#include <sys/stat.h>
+#ifdef _WIN32
+#include <direct.h>   // _mkdir
+#else
+#include <sys/stat.h> // mkdir
+#endif
 
 void sanitize_filename(char* dest, size_t dest_size, const char* src);
 

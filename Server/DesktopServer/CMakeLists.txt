@@ -36,6 +36,8 @@ add_executable(
 	${CMAKE_SOURCE_DIR}/src/cJSON.h
 	${CMAKE_SOURCE_DIR}/src/PrintProcedures/PrintProcedures.h
 	${CMAKE_SOURCE_DIR}/src/PrintProcedures/PrintProcedures.c
+	${CMAKE_SOURCE_DIR}/src/FileService/FileService.h
+	${CMAKE_SOURCE_DIR}/src/FileService/FileService.c
 )
 
 # Платформенно-специфичные настройки

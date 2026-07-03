@@ -1,4 +1,5 @@
 ﻿#include "PrintProcedures/PrintProcedures.h"
+#include "FileService/FileService.h"
 
 #ifdef _WIN32
 #include <WinSock2.h>
@@ -22,12 +23,14 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include <math.h>
 #include "cJSON.h"
 
 
 // ---------- Constants and macros ----------
 #define BUFFER_SIZE 4096
 #define TIMEOUT_SEC 50
+#define MAX_MESSAGE_SIZE 0x100000
 #define HTTP_REQUEST "GET / HTTP/1.1\r\nHost: icanhazip.com\r\nConnection: close\r\n\r\n"
 
 #ifndef _WIN32
@@ -47,6 +50,7 @@ static inline SOCKET* setup_socket
 	const char* ip, unsigned short port
 );
 void send_json(SOCKET sock, const char* type, const char* data);
+int receive_essage_length(SOCKET client_socket, SOCKET* server_socket, uint32_t* length);
 
 // ---------- Global variables ----------
 unsigned short connectionPort = 5000;
@@ -55,9 +59,9 @@ const char* connectionIp = "0.0.0.0";
 // ---------- Main ----------
 int main(int argc, char** argv)
 {
-	setlocale(LC_ALL, "Russian");
 
 #ifdef _WIN32
+	setlocale(LC_ALL, "Russian");
 	WSADATA wsaData;
 	int startupResult = WSAStartup(MAKEWORD(2, 2), &wsaData);
 	if (startupResult)
@@ -77,131 +81,159 @@ int main(int argc, char** argv)
 	}
 	print_info("Server external IP: %s\n", ipAddressStr);
 
-	// Find an available port starting from connectionPort
-	SOCKET* serverSocket = NULL;
-	struct sockaddr_in serverAddr;
-	do
-	{
-		serverSocket = setup_socket(AF_INET, SOCK_STREAM, 0,
-									&serverAddr, connectionIp, connectionPort);
-		if (serverSocket != NULL)
-		{
-			break;
-		}
-		++connectionPort;
-	}
-	while (true);
-
-	if (listen(*serverSocket, SOMAXCONN) == SOCKET_ERROR)
-	{
-		print_error("Listen failed\n");
-		closesocket(*serverSocket);
-		free(serverSocket);
-#ifdef _WIN32
-		WSACleanup();
-#endif
-		exit(EXIT_FAILURE);
-	}
-
-	print_success("Server started and waiting for connections on port %d (%s:%d)\n",
-				  connectionPort, ipAddressStr, connectionPort);
-	free(ipAddressStr);
-
-	// Accept one connection
-	SOCKET clientSocket;
-	struct sockaddr_in clientAddr;
-	socklen_t clientAddrSize = sizeof(clientAddr);
-	if ((clientSocket = accept(*serverSocket, (struct sockaddr*)&clientAddr,
-							   &clientAddrSize)) == INVALID_SOCKET)
-	{
-		print_error("Accept failed\n");
-		closesocket(*serverSocket);
-		free(serverSocket);
-#ifdef _WIN32
-		WSACleanup();
-#endif
-		exit(EXIT_FAILURE);
-	}
-
-	// Print client IP
-	char clientIP[INET_ADDRSTRLEN];
-	inet_ntop(AF_INET, &clientAddr.sin_addr, clientIP, INET_ADDRSTRLEN);
-	printf("Client connected: %s:%d\n", clientIP, ntohs(clientAddr.sin_port));
-
-	// Set receive timeout (to avoid hanging forever if client misbehaves)
-	if (!set_socket_timeout(clientSocket, TIMEOUT_SEC))
-	{
-		print_error("Failed to set socket timeout\n");
-	}
-
-	// Data processing loop – read until client closes write side
-	size_t bigBufSize = 0;
-	char* bigBuffer = NULL;
-
 	while (1)
 	{
-		char chunk[BUFFER_SIZE];
-		int bytesReceived = recv(clientSocket, chunk, BUFFER_SIZE - 1, 0);
-
-		if (bytesReceived > 0)
+		// Find an available port starting from connectionPort
+		SOCKET* serverSocket = NULL;
+		struct sockaddr_in serverAddr;
+		do
 		{
-			// Append to dynamic buffer
-			char* temp = realloc(bigBuffer, bigBufSize + bytesReceived + 1);
-			if (!temp)
+			serverSocket = setup_socket(AF_INET, SOCK_STREAM, 0,
+										&serverAddr, connectionIp, connectionPort);
+			if (serverSocket != NULL)
 			{
-				print_error("Memory allocation error\n");
-				free(bigBuffer);
-				bigBuffer = NULL;
-				bigBufSize = 0;
 				break;
 			}
-			bigBuffer = temp;
-			memcpy(bigBuffer + bigBufSize, chunk, bytesReceived);
-			bigBufSize += bytesReceived;
-			bigBuffer[bigBufSize] = '\0';
+			++connectionPort;
 		}
-		else if (bytesReceived == 0)
+		while (true);
+
+		if (listen(*serverSocket, SOMAXCONN) == SOCKET_ERROR)
 		{
-			print_info("Client disconnected\n");
-			break;
-		}
-		else
-		{
+			print_error("Listen failed\n");
+			closesocket(*serverSocket);
+			free(serverSocket);
 #ifdef _WIN32
-			if (WSAGetLastError() == WSAETIMEDOUT)
-			{
-				print_error("Connection timed out\n");
-			}
-			else
-			{
-				print_error("Receive error\n");
-			}
-#else
-			if (errno == EAGAIN || errno == EWOULDBLOCK)
-			{
-				print_error("Connection timed out\n");
-			}
-			else
-			{
-				print_error("Receive error\n");
-			}
+			WSACleanup();
+#endif
+			exit(EXIT_FAILURE);
+		}
+
+		print_success("Server started and waiting for connections on port %d (%s:%d)\n",
+					  connectionPort, ipAddressStr, connectionPort);
+
+		// Accept one connection
+		SOCKET clientSocket;
+		struct sockaddr_in clientAddr;
+		socklen_t clientAddrSize = sizeof(clientAddr);
+		if ((clientSocket = accept(*serverSocket, (struct sockaddr*)&clientAddr,
+								   &clientAddrSize)) == INVALID_SOCKET)
+		{
+			print_error("Accept failed\n");
+			closesocket(*serverSocket);
+			free(serverSocket);
+#ifdef _WIN32
+			WSACleanup();
 #endif
 			break;
 		}
-	}
 
-	// Process the complete received data (should be one JSON object)
-	if (bigBuffer && bigBufSize > 0)
-	{
-		cJSON* root = cJSON_Parse(bigBuffer);
+		// Print client IP
+		char clientIP[INET_ADDRSTRLEN];
+		inet_ntop(AF_INET, &clientAddr.sin_addr, clientIP, INET_ADDRSTRLEN);
+		printf("Client connected: %s:%d\n", clientIP, ntohs(clientAddr.sin_port));
+
+		// Set receive timeout (to avoid hanging forever if client misbehaves)
+		if (!set_socket_timeout(clientSocket, TIMEOUT_SEC))
+		{
+			print_error("Failed to set socket timeout\n");
+		}
+
+		uint32_t message_length = 0;
+		int total_received_len = 0;
+
+		if (receive_essage_length(clientSocket, serverSocket, &message_length))
+		{
+			print_error("Failed to receive message length\n");
+			continue;
+		}
+	
+		if (message_length == 0 || message_length > MAX_MESSAGE_SIZE)
+		{
+			print_error("Invalid message length: %u\n", message_length);
+			closesocket(clientSocket);
+			closesocket(*serverSocket);
+			free(serverSocket);
+			continue;
+		}
+
+
+		char* json_buffer = (char*)malloc(message_length+1);
+		if (!json_buffer)
+		{
+			print_error("Memory allocation error\n");
+			closesocket(clientSocket);
+			closesocket(*serverSocket);
+			free(serverSocket);
+			continue;
+
+		}
+		json_buffer[message_length] = '\0';
+
+
+		int total_received = 0;
+		while (total_received < message_length)
+		{
+			int n = recv(clientSocket, json_buffer + total_received, message_length - total_received, 0);
+			if (n <= 0)
+				break;
+			total_received += n;
+		}
+		if (total_received != message_length)
+		{
+			print_error("Failed to receive complete message\n");
+			free(json_buffer);
+			closesocket(clientSocket);
+			closesocket(*serverSocket);
+			free(serverSocket);
+			continue;
+		}
+	
+		cJSON* root = cJSON_Parse(json_buffer);
+		// Process the complete received data (should be one JSON object)
 		if (root)
 		{
-			cJSON* typeItem = cJSON_GetObjectItem(root, "type");
-			cJSON* dataItem = cJSON_GetObjectItem(root, "data");
-			if (cJSON_IsString(typeItem) && cJSON_IsString(dataItem))
+			cJSON* typeItem		= cJSON_GetObjectItem(root, "type");
+			cJSON* dataItem		= cJSON_GetObjectItem(root, "data");
+			cJSON* saveToPath	= cJSON_GetObjectItem(root, "saveToPath");
+			if (cJSON_IsString(typeItem) && cJSON_IsString(dataItem) && !cJSON_IsString(saveToPath))
 			{
 				printf("[%s]: %s\n", typeItem->valuestring, dataItem->valuestring);
 				send_json(clientSocket, "message", "OK");
+			}
+			else if (cJSON_IsString(typeItem) && cJSON_IsString(dataItem) && cJSON_IsString(saveToPath))
+			{
+				if (strcmp(typeItem->valuestring, "RAW_DATA") == 0)
+					printf("[%s]: %s\n", typeItem->valuestring, dataItem->valuestring);
+
+
+
+				char safe_name[MAX_FILENAME + 1];
+				sanitize_filename(safe_name, sizeof(safe_name), saveToPath->valuestring);
+#ifdef _WIN32
+				_mkdir(SAVE_DIR)
+#else
+				mkdir(SAVE_DIR, 0755);
+#endif
+				char full_path[MAX_FILENAME + SAVE_DIR_LENGTH + 2];
+				snprintf(full_path, sizeof(full_path), "%s/%s", SAVE_DIR, safe_name);
+				int max_length = MAX_FILENAME + SAVE_DIR_LENGTH + 2;
+				int filename_length = SAVE_DIR_LENGTH + 1 + strlen(safe_name) + 1;
+				full_path[max_length < filename_length ? max_length : filename_length]= '\0';
+
+				FILE* file = fopen(full_path, "wb");
+				if (!file)
+				{
+					print_error("Failed to open %s\n", full_path);
+					send_json(clientSocket, "error", "Cannot save file");
+				}
+				else
+				{
+					fputs(dataItem->valuestring, file);
+					fclose(file);
+					print_info("Saved to %s\n", full_path);
+					send_json(clientSocket, "message", "File saved");
+				}
 			}
 			else
 			{
@@ -215,20 +247,16 @@ int main(int argc, char** argv)
 			print_error("Failed to parse JSON\n");
 			send_json(clientSocket, "error", "JSON parse error");
 		}
+		// Cleanup
+		free(json_buffer);
+		closesocket(clientSocket);
+		closesocket(*serverSocket);
+		free(serverSocket);
 	}
-	else
-	{
-		print_error("No data received\n");
-	}
-
-	// Cleanup
-	free(bigBuffer);
-	closesocket(clientSocket);
-	closesocket(*serverSocket);
-	free(serverSocket);
 #ifdef _WIN32
 	WSACleanup();
 #endif
+	free(ipAddressStr);
 
 	return EXIT_SUCCESS;
 }
@@ -394,6 +422,8 @@ static inline SOCKET* setup_socket(int af, int type, int protocol,
 	inet_pton(af, ip, &server_addr->sin_addr);
 	server_addr->sin_port = htons(port);
 
+	int optval = 1;
+	setsockopt(*server_sock, SOL_SOCKET, SO_REUSEADDR, (const char*)&optval, sizeof(optval));
 	if (bind(*server_sock, (struct sockaddr*)server_addr,
 			 sizeof(struct sockaddr_in)) == SOCKET_ERROR)
 	{
@@ -415,9 +445,39 @@ void send_json(SOCKET sock, const char* type, const char* data)
 	char* jsonStr = cJSON_PrintUnformatted(root);
 	if (jsonStr)
 	{
-		send(sock, jsonStr, (int)strlen(jsonStr), 0);
+		uint32_t message_length = (uint32_t)strlen(jsonStr);
+		uint32_t message_length_net = htonl(message_length);
+		send(sock, (char*)&message_length_net, sizeof(message_length_net),0);
+		send(sock, jsonStr, message_length, 0);
 		free(jsonStr);
 	}
 	cJSON_Delete(root);
+}
+
+// Receive message length
+int receive_essage_length(SOCKET client_socket, SOCKET* server_socket, uint32_t* length)
+{
+	int received = 0, total_received = 0;
+	while (total_received != sizeof(uint32_t))
+	{
+		received = recv(client_socket, ((uint8_t*)length) + total_received, sizeof(uint32_t) - total_received, 0);
+		if (received <= 0)
+		{
+			if (received == 0)
+				print_error("Client disconnected before sending length\n");
+			else
+				print_error("recv error while reading length\n");
+			closesocket(client_socket);
+			closesocket(*server_socket);
+			free(server_socket);
+
+			return EXIT_FAILURE;
+		}
+		total_received += received;
+	}
+
+	*length = htonl(*length);
+
+	return EXIT_SUCCESS;
 }
 

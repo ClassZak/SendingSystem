@@ -2,9 +2,12 @@ package com.example.sendingsystemclient;
 
 import android.os.Bundle;
 import android.view.View;
+import android.widget.AdapterView;
+import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.CheckBox;
 import android.widget.EditText;
+import android.widget.Spinner;
 import android.widget.Toast;
 
 import androidx.activity.EdgeToEdge;
@@ -15,16 +18,21 @@ import androidx.core.view.WindowInsetsCompat;
 
 import com.example.sendingsystemclient.dto.Connector;
 import com.example.sendingsystemclient.dto.IPVersion;
+import com.example.sendingsystemclient.dto.SendingType;
 
 import java.io.IOException;
+import java.lang.reflect.Array;
+import java.util.Arrays;
 
 public class MainActivity extends AppCompatActivity {
 
     private EditText editTextServerIP;
     private EditText editTextServerPort;
     private EditText editTextSendingData;
+    private EditText editTextSaveToPath;
     private CheckBox checkBoxIPv4;
     private CheckBox checkBoxIPv6;
+    private Spinner spinnerSendingType;
     private Button buttonSend;
 
     @Override
@@ -42,15 +50,24 @@ public class MainActivity extends AppCompatActivity {
         editTextServerIP = findViewById(R.id.editTextServerIP);
         editTextServerPort = findViewById(R.id.editTextServerPort);
         editTextSendingData = findViewById(R.id.editTextSendingData);
+        editTextSaveToPath = findViewById(R.id.editTextSaveToPath);
         checkBoxIPv4 = findViewById(R.id.checkBoxIPv4);
         checkBoxIPv6 = findViewById(R.id.checkBoxIPv6);
+        spinnerSendingType = findViewById(R.id.spinnerSendingType);
         buttonSend = findViewById(R.id.button);
 
         setUpListeners();
+
+        String[] sendingTypes = Arrays.stream(SendingType.values())
+                .map(SendingType::name)
+                .toArray(String[]::new);
+        ArrayAdapter<String> adapter = new ArrayAdapter(this, android.R.layout.simple_spinner_item, sendingTypes);
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_item);
+        spinnerSendingType.setAdapter(adapter);
+        spinnerSendingType.setSelection(0);
     }
 
     private void setUpListeners() {
-        // Взаимное исключение чекбоксов
         checkBoxIPv4.setOnCheckedChangeListener((buttonView, isChecked) -> {
             if (isChecked) checkBoxIPv6.setChecked(false);
         });
@@ -58,7 +75,7 @@ public class MainActivity extends AppCompatActivity {
             if (isChecked) checkBoxIPv4.setChecked(false);
         });
 
-        // Обработчик кнопки отправки
+        // Sending button listener
         buttonSend.setOnClickListener(v -> onSendClicked());
     }
 
@@ -66,47 +83,70 @@ public class MainActivity extends AppCompatActivity {
         String ip = editTextServerIP.getText().toString().trim();
         String portStr = editTextServerPort.getText().toString().trim();
         String data = editTextSendingData.getText().toString().trim();
+        String saveToPath = editTextSaveToPath.getText().toString().trim();
 
-        // Проверка порта
+        // Port validation
         int port;
         try {
             port = Integer.parseInt(portStr);
             if (port < 1 || port > 65535) {
-                Toast.makeText(this, "Порт должен быть в диапазоне 1-65535", Toast.LENGTH_SHORT).show();
+                Toast.makeText(
+                        this,
+                        "The port must be between 1 and 65535",
+                        Toast.LENGTH_SHORT
+                ).show();
                 return;
             }
         } catch (NumberFormatException e) {
-            Toast.makeText(this, "Некорректный порт", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "Wrong port", Toast.LENGTH_SHORT).show();
             return;
         }
 
-        // Определяем версию IP по чекбоксам
+        // calculate IP version by checkboxes
         IPVersion ipVersion = checkBoxIPv4.isChecked() ? IPVersion.IPv4 : IPVersion.IPv6;
 
-        // Проверка IP-адреса без regex
+        // IP address verify
         if (!Connector.isValidInetAddress(ip, ipVersion)) {
-            Toast.makeText(this, "Некорректный IP-адрес: " + ip, Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "Wrong IP-address: " + ip, Toast.LENGTH_SHORT).show();
             return;
         }
 
-        // Создаём объект коннектора
         Connector connector = new Connector();
         connector.serverIp = ip;
         connector.serverPort = port;
+        connector.sendingType =
+                this.spinnerSendingType.getSelectedItem() == SendingType.RAW_DATA.toString() ?
+                        SendingType.RAW_DATA : SendingType.FILE;
         connector.sendingData = data;
         connector.ipVersion = ipVersion;
-        // saveToPath при необходимости можно задать
+        connector.setSaveToPath(saveToPath);
 
-        // Выполняем отправку в фоновом потоке (чтобы не блокировать UI)
+        // Send in new thread (free UI thread)
         new Thread(() -> {
             try {
                 String response = connector.sendData();
                 runOnUiThread(() ->
-                        Toast.makeText(MainActivity.this, "Ответ: " + response, Toast.LENGTH_LONG).show()
+                        Toast.makeText(
+                            MainActivity.this,
+                            "Response: " + response,
+                            Toast.LENGTH_LONG
+                        ).show()
                 );
             } catch (IOException | org.json.JSONException e) {
                 runOnUiThread(() ->
-                        Toast.makeText(MainActivity.this, "Ошибка отправки: " + e.getMessage(), Toast.LENGTH_LONG).show()
+                    Toast.makeText(
+                        MainActivity.this,
+                        "Sending error: " + e.getMessage(),
+                        Toast.LENGTH_LONG
+                    ).show()
+                );
+            } catch (Exception e) {
+                runOnUiThread(() ->
+                    Toast.makeText(
+                        MainActivity.this,
+                        "Error: " + e.getMessage(),
+                        Toast.LENGTH_LONG
+                    ).show()
                 );
             }
         }).start();

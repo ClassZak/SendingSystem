@@ -29,7 +29,7 @@ void print_error(const char* format, ...)
 #endif
 
 #ifndef _WIN32
-	printf(RESET_COLOR);
+	fprintf(stderr, RESET_COLOR);
 #else
 	SetConsoleTextAttribute(console_handle, RESET_COLOR);
 #endif

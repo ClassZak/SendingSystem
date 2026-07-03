@@ -22,6 +22,19 @@
         app:layout_constraintTop_toBottomOf="@+id/textView4"
         tools:ignore="LabelFor" />
 
+    <EditText
+        android:id="@+id/editTextSaveToPath"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:autofillHints="something"
+        android:ems="10"
+        android:inputType="text"
+        android:text=""
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/textView5"
+        tools:ignore="LabelFor" />
+
     <TextView
         android:id="@+id/textView"
         android:layout_width="wrap_content"
@@ -50,6 +63,16 @@
         app:layout_constraintHorizontal_bias="0.498"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/editTextServerPort" />
+
+    <TextView
+        android:id="@+id/textView5"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/save_to_path"
+        android:layout_marginTop="12dp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/editTextSendingData" />
 
     <EditText
         android:id="@+id/editTextServerIP"
@@ -82,12 +105,12 @@
         android:id="@+id/button"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginTop="24dp"
         android:text="@string/send"
+        android:layout_marginTop="24dp"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintHorizontal_bias="0.498"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/editTextSendingData" />
+        app:layout_constraintTop_toBottomOf="@+id/editTextSaveToPath" />
 
     <TextView
         android:id="@+id/textView2"
@@ -96,10 +119,8 @@
         android:text="@string/sending_system"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintHorizontal_bias="0.498"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/button"
-        app:layout_constraintVertical_bias="0.115" />
+        app:layout_constraintTop_toBottomOf="@+id/spinnerDataType" />
 
     <CheckBox
         android:id="@+id/checkBoxIPv4"
@@ -118,5 +139,21 @@
         android:text="@string/ipv6"
         app:layout_constraintStart_toStartOf="@+id/checkBoxIPv4"
         app:layout_constraintTop_toBottomOf="@+id/checkBoxIPv4" />
+
+    <Spinner
+        android:id="@+id/spinnerSendingType"
+        android:layout_width="409dp"
+        android:layout_height="wrap_content"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/textView6" />
+
+    <TextView
+        android:id="@+id/textView6"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/data_type"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/button" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>

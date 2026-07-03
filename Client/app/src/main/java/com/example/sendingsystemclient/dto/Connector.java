@@ -5,53 +5,81 @@ import androidx.annotation.Nullable;
 import org.json.JSONException;
 import org.json.JSONObject;
 
-import java.io.BufferedReader;
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
 import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.PrintWriter;
 import java.net.Inet4Address;
 import java.net.Inet6Address;
 import java.net.InetAddress;
 import java.net.Socket;
+import java.nio.charset.StandardCharsets;
 
 public class Connector {
+    private static final int MAX_RESPONSE_SIZE = 1024 * 1024;
     public IPVersion ipVersion = IPVersion.IPv4;
     public String serverIp = "127.0.0.1";
     public int serverPort = 5000;
     public String sendingData = "";
     public SendingType sendingType = SendingType.RAW_DATA;
     @Nullable
-    public String saveToPath;
-
+    private String saveToPath;
+    public void setSaveToPath(String saveToPath) {
+        this.saveToPath = sanitizeFilename(saveToPath);
+    }
+    @Nullable
+    public String getSaveToPath() {
+        return this.saveToPath;
+    }
 
     @Nullable
     public String sendData() throws IOException, JSONException {
         try (Socket socket = new Socket(serverIp, serverPort)) {
-            PrintWriter writer = new PrintWriter(socket.getOutputStream(), true);
-            BufferedReader reader =
-                new BufferedReader(new InputStreamReader(socket.getInputStream()));
+            socket.setTcpNoDelay(true);
+            DataOutputStream dos = new DataOutputStream(socket.getOutputStream());
+            DataInputStream dis = new DataInputStream(socket.getInputStream());
 
+            // Формируем JSON
             JSONObject jsonRequest = new JSONObject();
             jsonRequest.put("type", sendingType.toString());
             jsonRequest.put("data", sendingData);
-            if (saveToPath != null)
+            if (saveToPath != null && !saveToPath.isEmpty())
                 jsonRequest.put("saveToPath", saveToPath);
 
-            writer.println(jsonRequest);
+            byte[] jsonBytes = jsonRequest.toString().getBytes(StandardCharsets.UTF_8);
+            int length = jsonBytes.length;
 
+            // Отправляем длину (4 байта, big‑endian) и сами данные
+            dos.writeInt(length);
+            dos.write(jsonBytes);
+            dos.flush();
+
+            // Сообщаем серверу, что больше данных не будет
             socket.shutdownOutput();
 
-            return reader.readLine();
+            // Читаем ответ: длина (int) + JSON
+            int responseLength = dis.readInt();
+            if (responseLength <= 0 || responseLength > MAX_RESPONSE_SIZE) {
+                throw new IOException("Invalid response length: " + responseLength);
+            }
+            byte[] responseBytes = new byte[responseLength];
+            dis.readFully(responseBytes);
+            return new String(responseBytes, StandardCharsets.UTF_8);
         }
     }
-
+    public static String sanitizeFilename(String input) {
+        if (input == null || input.isEmpty()) return "unnamed.dat";
+        String safe = input.replaceAll("[^a-zA-Z0-9._-]", "_");
+        safe = safe.replaceAll("\\.{2,}", "_");
+        safe = safe.replaceFirst("^\\.", "");
+        return safe.isEmpty() ? "unnamed.dat" : safe;
+    }
     public static boolean isValidInetAddress(String ip, IPVersion version) {
         try {
-            InetAddress addr = InetAddress.getByName(ip);
+            InetAddress address = InetAddress.getByName(ip);
             if (version == IPVersion.IPv4) {
-                return addr instanceof Inet4Address;
+                return address instanceof Inet4Address;
             } else if (version == IPVersion.IPv6) {
-                return addr instanceof Inet6Address;
+                return address instanceof Inet6Address;
             }
         } catch (Exception e) {
             // invalid

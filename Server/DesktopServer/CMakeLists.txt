@@ -1,8 +1,12 @@
-﻿cmake_minimum_required(VERSION 3.28)
+﻿cmake_minimum_required(VERSION 3.28...4.4)
 
-# Автоматическая настройка для Windows 7
+
+
+
+
+
+# Windows 7 settings
 if(WIN32 AND CMAKE_SYSTEM_VERSION VERSION_EQUAL 6.1)
-	# Принудительная настройка для Windows 7
 	set(CMAKE_GENERATOR "Ninja" CACHE INTERNAL "" FORCE)
 	set(
 		CMAKE_MAKE_PROGRAM
@@ -17,23 +21,40 @@ if(WIN32 AND CMAKE_SYSTEM_VERSION VERSION_EQUAL 6.1)
 	set(CMAKE_C_COMPILER_WORKS 1 CACHE BOOL "" FORCE)
 	set(CMAKE_TRY_COMPILE_TARGET_TYPE STATIC_LIBRARY CACHE STRING "" FORCE)
 	
-	# Установка стандарта C11 для GCC
+	# C11 for GCC compiler
 	set(CMAKE_C_STANDARD 11)
 	set(CMAKE_C_STANDARD_REQUIRED ON)
 endif()
+
+
+
 
 project(SendingSystem VERSION 1.0
 		DESCRIPTION "Application for data transfering"
 		LANGUAGES C
 )
 
-# Добавление исходников
+
+# Fetch dependecies
+set(CMAKE_POLICY_VERSION_MINIMUM 3.5)
+include(FetchContent)
+FetchContent_Declare(
+	cJSON
+	GIT_REPOSITORY	https://github.com/DaveGamble/cJSON.git
+	GIT_TAG			v1.7.18 
+)
+FetchContent_MakeAvailable(cJSON)
+
+
+
+
+
+
+# Sources
 add_executable(
 	SendingSystem 
 	${CMAKE_SOURCE_DIR}/src/Server.c
-	${CMAKE_SOURCE_DIR}/src/cJSON.c
 	${CMAKE_SOURCE_DIR}/src/Server.h
-	${CMAKE_SOURCE_DIR}/src/cJSON.h
 	${CMAKE_SOURCE_DIR}/src/PrintProcedures/PrintProcedures.h
 	${CMAKE_SOURCE_DIR}/src/PrintProcedures/PrintProcedures.c
 	${CMAKE_SOURCE_DIR}/src/FileService/FileService.h
@@ -42,23 +63,38 @@ add_executable(
 	${CMAKE_SOURCE_DIR}/src/Base64/Base64.c
 )
 
-# Платформенно-специфичные настройки
+# Install dependecies
+target_link_libraries(SendingSystem PRIVATE cjson)
+target_include_directories(SendingSystem PRIVATE ${cJSON_SOURCE_DIR})
+get_target_property(SendingSystem_INCLUDES SendingSystem INCLUDE_DIRECTORIES)
+message(STATUS "SendingSystem includes: ${SendingSystem_INCLUDES}")
+if(TARGET cjson)
+    message(STATUS "Target cjson EXISTS")
+else()
+    message(FATAL_ERROR "Target cjson NOT FOUND")
+endif()
+
+
+
+
+
+# Platform orient settings
 if(WIN32)
 	target_link_libraries(SendingSystem PRIVATE ws2_32)
 	
-	# Флаги для Windows 7
+	# Windows 7 flags
 	if(CMAKE_SYSTEM_VERSION VERSION_EQUAL 6.1)
 		add_compile_definitions(_WIN32_WINNT=0x0601)
 		target_compile_options(SendingSystem PRIVATE -O0)
 	endif()
 else()
-	# Настройки для Linux/MacOS
+	# Linux and MacOS settings
 	target_compile_options(SendingSystem PRIVATE -O0)
 endif()
 
-# Настройки для MSVC (Windows 10/11)
+# MSVC settings (Windows 10/11)
 if(MSVC)
-	# Активация политики для Edit and Continue
+	# Activate Edit and Continue policy
 	cmake_policy(SET CMP0141 NEW)
 	target_compile_options(SendingSystem PRIVATE "/std:c11")
 	
@@ -69,8 +105,9 @@ if(MSVC)
 		LINK_FLAGS_DEBUG "/INCREMENTAL"
 	)
 	
-	# Флаги оптимизации
+	# No optimization flags
 	target_compile_options(SendingSystem PRIVATE
 		"$<$<CONFIG:Debug>:/Od>"
 	)
+
 endif()

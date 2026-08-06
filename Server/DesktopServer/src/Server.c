@@ -16,15 +16,15 @@
 #include <unistd.h>
 #include <netdb.h>
 #include <errno.h>
+#include <sys/select.h>
+#include <fcntl.h>
 #endif
 
 #include <stdarg.h>
-#include <locale.h>
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
-#include <math.h>
 #include <cJSON.h>
 
 
@@ -32,7 +32,11 @@
 #define BUFFER_SIZE 4096
 #define TIMEOUT_SEC 50
 #define MAX_MESSAGE_SIZE 0x6400000
+#define IP_SOLVER_SERVER_DOMAIN "icanhazip.com"
 #define HTTP_REQUEST "GET / HTTP/1.1\r\nHost: icanhazip.com\r\nConnection: close\r\n\r\n"
+const unsigned short CONNECTION_PORT = 5000;
+const char* CONNECTION_IP = "0.0.0.0";
+const int PORT_RECONNECTION_SLEEP_TIME = 5;
 
 #ifndef _WIN32
 typedef int SOCKET;
@@ -51,11 +55,8 @@ static inline SOCKET* setup_socket
 	const char* ip, unsigned short port
 );
 void send_json(SOCKET sock, const char* type, const char* data);
-int receive_essage_length(SOCKET client_socket, SOCKET* server_socket, uint32_t* length);
+int receive_message_length(SOCKET client_socket, SOCKET* server_socket, uint32_t* length);
 
-// ---------- Global variables ----------
-unsigned short connectionPort = 5000;
-const char* connectionIp = "0.0.0.0";
 
 // ---------- Main ----------
 int main(int argc, char** argv)
@@ -90,12 +91,13 @@ int main(int argc, char** argv)
 		do
 		{
 			serverSocket = setup_socket(AF_INET, SOCK_STREAM, 0,
-										&serverAddr, connectionIp, connectionPort);
-			if (serverSocket != NULL)
-			{
+										&serverAddr, CONNECTION_IP, CONNECTION_PORT);
+			if (serverSocket == NULL) {
+				print_error("Failed to connect on port %d\nRestart in%d\n", CONNECTION_PORT, PORT_RECONNECTION_SLEEP_TIME);
+				sleep(PORT_RECONNECTION_SLEEP_TIME);
+			} else {
 				break;
 			}
-			++connectionPort;
 		}
 		while (true);
 
@@ -111,7 +113,7 @@ int main(int argc, char** argv)
 		}
 
 		print_success("Server started and waiting for connections on port %d (%s:%d)\n",
-					  connectionPort, ipAddressStr, connectionPort);
+					  CONNECTION_PORT, ipAddressStr, CONNECTION_PORT);
 
 		// Accept one connection
 		SOCKET clientSocket;
@@ -126,13 +128,13 @@ int main(int argc, char** argv)
 #ifdef _WIN32
 			WSACleanup();
 #endif
-			break;
+			continue;
 		}
 
 		// Print client IP
 		char clientIP[INET_ADDRSTRLEN];
 		inet_ntop(AF_INET, &clientAddr.sin_addr, clientIP, INET_ADDRSTRLEN);
-		printf("Client connected: %s:%d\n", clientIP, ntohs(clientAddr.sin_port));
+		print_info("Client connected: %s:%d\n", clientIP, ntohs(clientAddr.sin_port));
 
 		// Set receive timeout (to avoid hanging forever if client misbehaves)
 		if (!set_socket_timeout(clientSocket, TIMEOUT_SEC))
@@ -141,10 +143,10 @@ int main(int argc, char** argv)
 		}
 
 		uint32_t message_length = 0;
-		int total_received_len = 0;
-
-		if (receive_essage_length(clientSocket, serverSocket, &message_length))
+		if (receive_message_length(clientSocket, serverSocket, &message_length))
 		{
+			closesocket(clientSocket);
+			closesocket(*serverSocket);
 			print_error("Failed to receive message length\n");
 			continue;
 		}
@@ -191,7 +193,13 @@ int main(int argc, char** argv)
 		}
 	
 		cJSON* root = cJSON_Parse(json_buffer);
-		// Process the complete received data (should be one JSON object)
+		/* Process the complete received data (should be one JSON object).
+		 * If "saveToPath" field is empty or does not exists print the client message.
+		 * If "type" is equals "RAW_DATA" save the raw data and decode from base64 instead.
+		 * The "type" field is used to describe which kind of data client sended to
+		 * but the same time "saveToPath" is used to calculate is need to save data in 
+		 * the file or not.
+		 * */
 		if (root)
 		{
 			cJSON* typeItem		= cJSON_GetObjectItem(root, "type");
@@ -214,15 +222,13 @@ int main(int argc, char** argv)
 				char safe_name[MAX_FILENAME + 1];
 				sanitize_filename(safe_name, sizeof(safe_name), saveToPath->valuestring);
 #ifdef _WIN32
-				_mkdir(SAVE_DIR)
+				_mkdir(SAVE_DIR);
 #else
 				mkdir(SAVE_DIR, 0755);
 #endif
-				char full_path[MAX_FILENAME + SAVE_DIR_LENGTH + 2];
+				int max_length = MAX_FILENAME + SAVE_DIR_LENGTH + 1; // <save_directory>/<file_name>
+				char full_path[max_length];
 				snprintf(full_path, sizeof(full_path), "%s/%s", SAVE_DIR, safe_name);
-				int max_length = MAX_FILENAME + SAVE_DIR_LENGTH + 2;
-				int filename_length = SAVE_DIR_LENGTH + 1 + strlen(safe_name) + 1;
-				full_path[max_length < filename_length ? max_length : filename_length] = '\0';
 
 				FILE* file = fopen(full_path, "wb");
 				if (!file)
@@ -317,47 +323,112 @@ bool set_socket_timeout(SOCKET sock, int timeout_sec)
 }
 
 // ---------- Obtain global IP via icanhazip.com ----------
-char* get_global_ip()
+char* get_global_ip(void)
 {
 	SOCKET sock = INVALID_SOCKET;
 	struct addrinfo hints, *result = NULL, *ptr = NULL;
-	char* ip = NULL;
+	char *ip = NULL;
 	char recvbuf[BUFFER_SIZE];
 	int iResult;
 
-#ifdef _WIN32
-	ZeroMemory(&hints, sizeof(hints));
-#else
 	memset(&hints, 0, sizeof(hints));
-#endif
 	hints.ai_family = AF_INET;
 	hints.ai_socktype = SOCK_STREAM;
 	hints.ai_protocol = IPPROTO_TCP;
 
-	if ((iResult = getaddrinfo("icanhazip.com", "80", &hints, &result)) != 0)
+	if ((iResult = getaddrinfo(IP_SOLVER_SERVER_DOMAIN, "80", &hints, &result)) != 0)
 	{
-		fprintf(stderr, "getaddrinfo failed: %d\n", iResult);
+		print_error("getaddrinfo failed: %d\n", iResult);
 		return NULL;
 	}
 
+	// ---------- 1. Try addresses until connected with timeout ----------
 	for (ptr = result; ptr != NULL; ptr = ptr->ai_next)
 	{
 		sock = socket(ptr->ai_family, ptr->ai_socktype, ptr->ai_protocol);
 		if (sock == INVALID_SOCKET)
-		{
-#ifdef _WIN32
-			fprintf(stderr, "socket failed: %d\n", WSAGetLastError());
-#else
-			print_error("socket failed: %d\t%s\n", errno, strerror(errno));
-#endif
 			continue;
-		}
-		if (connect(sock, ptr->ai_addr, (int)ptr->ai_addrlen) == SOCKET_ERROR)
+
+		// Set socket to non-blocking mode
+#ifdef _WIN32
+		u_long mode = 1;
+		if (ioctlsocket(sock, FIONBIO, &mode) != 0)
 		{
 			closesocket(sock);
 			sock = INVALID_SOCKET;
 			continue;
 		}
+#else
+		int flags = fcntl(sock, F_GETFL, 0);
+		if (flags == -1 || fcntl(sock, F_SETFL, flags | O_NONBLOCK) == -1)
+		{
+			closesocket(sock);
+			sock = INVALID_SOCKET;
+			continue;
+		}
+#endif
+
+		// Non-blocking connect
+		if (connect(sock, ptr->ai_addr, (int)ptr->ai_addrlen) == SOCKET_ERROR)
+		{
+#ifdef _WIN32
+			if (WSAGetLastError() != WSAEWOULDBLOCK)
+#else
+			if (errno != EINPROGRESS)
+#endif
+			{
+				closesocket(sock);
+				sock = INVALID_SOCKET;
+				continue;
+			}
+		}
+
+		// Wait with timeout until socket becomes writable
+		fd_set write_fds;
+		FD_ZERO(&write_fds);
+		FD_SET(sock, &write_fds);
+		struct timeval tv;
+		tv.tv_sec = TIMEOUT_SEC;
+		tv.tv_usec = 0;
+
+		int select_ret = select((int)sock + 1, NULL, &write_fds, NULL, &tv);
+		if (select_ret <= 0)
+		{
+			closesocket(sock);
+			sock = INVALID_SOCKET;
+			continue;
+		}
+
+		// Check if socket error occurred
+		int so_error = 0;
+		socklen_t len = sizeof(so_error);
+		if (getsockopt(sock, SOL_SOCKET, SO_ERROR, (char*)&so_error, &len) == SOCKET_ERROR ||
+			so_error != 0)
+		{
+			closesocket(sock);
+			sock = INVALID_SOCKET;
+			continue;
+		}
+
+		// Restore blocking mode
+#ifdef _WIN32
+		mode = 0;
+		if (ioctlsocket(sock, FIONBIO, &mode) != 0)
+		{
+			closesocket(sock);
+			sock = INVALID_SOCKET;
+			continue;
+		}
+#else
+		if (fcntl(sock, F_SETFL, flags & ~O_NONBLOCK) == -1)
+		{
+			closesocket(sock);
+			sock = INVALID_SOCKET;
+			continue;
+		}
+#endif
+
+		// Successfully connected — exit loop
 		break;
 	}
 
@@ -365,31 +436,56 @@ char* get_global_ip()
 
 	if (sock == INVALID_SOCKET)
 	{
-		fprintf(stderr, "Failed to connect to receive the IP\n");
+		print_error("Failed to connect to IP resolver\n");
 		return NULL;
 	}
 
-	if ((iResult = send(sock, HTTP_REQUEST, (int)strlen(HTTP_REQUEST), 0)) == SOCKET_ERROR)
+	// Set receive timeout
+	if (!set_socket_timeout(sock, TIMEOUT_SEC))
 	{
-#ifdef _WIN32
-		fprintf(stderr, "Send failed: %d\n", WSAGetLastError());
-#else
-		print_error("Sending failed: %d\t%s\n", errno, strerror(errno));
-#endif
+		print_error("Failed to set receive timeout\n");
 		closesocket(sock);
 		return NULL;
 	}
 
-	// Receive response
-	int total_received = 0;
-	char* response = NULL;
-	do
+	// ---------- 2. Send HTTP request with guaranteed full send ----------
+	const char *request = HTTP_REQUEST;
+	int request_len = (int)strlen(request);
+	int sent_total = 0;
+
+	while (sent_total < request_len)
 	{
-		iResult = recv(sock, recvbuf, BUFFER_SIZE - 1, 0);
+		iResult = send(sock, request + sent_total, request_len - sent_total, 0);
+		if (iResult == SOCKET_ERROR)
+		{
+#ifdef _WIN32
+			int err = WSAGetLastError();
+#else
+			int err = errno;
+#endif
+			if (err == EINTR)
+				continue;
+			print_error("Send failed\n");
+			closesocket(sock);
+			return NULL;
+		}
+		sent_total += iResult;
+	}
+
+	// ---------- 3. Read response respecting Content-Length ----------
+	bool headers_parsed = false;
+	int content_length = -1;
+	char *body_start = NULL;
+	int total_received = 0;
+	char *response = NULL;
+
+	while (1)
+	{
+		iResult = recv(sock, recvbuf, sizeof(recvbuf) - 1, 0);
 		if (iResult > 0)
 		{
 			recvbuf[iResult] = '\0';
-			char* temp = realloc(response, total_received + iResult + 1);
+			char *temp = realloc(response, total_received + iResult + 1);
 			if (!temp)
 			{
 				free(response);
@@ -400,44 +496,84 @@ char* get_global_ip()
 			memcpy(response + total_received, recvbuf, iResult);
 			total_received += iResult;
 			response[total_received] = '\0';
+
+			// Look for the end of headers (empty line)
+			if (!headers_parsed)
+			{
+				body_start = strstr(response, "\r\n\r\n");
+				if (body_start)
+				{
+					headers_parsed = true;
+					// Try to find Content-Length
+					char *cl = strstr(response, "Content-Length:");
+					if (cl)
+					{
+						cl += strlen("Content-Length:");
+						while (*cl == ' ') cl++;
+						content_length = (int)strtol(cl, NULL, 10);
+					}
+					body_start += 4;   // start of body
+				}
+			}
+
+			// If length is known and the full body is received — exit
+			if (headers_parsed && content_length >= 0)
+			{
+				int body_received = total_received - (int)(body_start - response);
+				if (body_received >= content_length)
+					break;
+			}
 		}
 		else if (iResult == 0)
 		{
+			// Server closed connection
 			break;
 		}
 		else
 		{
+			// Error
 #ifdef _WIN32
-			fprintf(stderr, "recv failed: %d\n", WSAGetLastError());
+			int err = WSAGetLastError();
 #else
-			print_error("Receiving failed: %d\t%s\n", errno, strerror(errno));
+			int err = errno;
 #endif
-			free(response);
-			closesocket(sock);
-			return NULL;
+			if (err == EINTR)
+				continue;
+			// If timeout or other error — stop reading
+			break;
 		}
 	}
-	while (iResult > 0);
 
+	closesocket(sock);
+	sock = INVALID_SOCKET;
+
+	// ---------- 4. Extract IP from response body ----------
 	if (response)
 	{
-		char* body = strstr(response, "\r\n\r\n");
+		char *body = body_start;
+		if (!body)  // fallback: if headers weren't found, search manually
+		{
+			body = strstr(response, "\r\n\r\n");
+			if (body) body += 4;
+		}
+
 		if (body)
 		{
-			body += 4;
-			char* end = body + strcspn(body, "\r\n\t ");
+			// Remove trailing spaces and newlines
+			char *end = body + strcspn(body, "\r\n\t ");
 			size_t len = end - body;
-			ip = malloc(len + 1);
-			if (ip)
+			if (len > 0)
 			{
-				strncpy(ip, body, len);
-				ip[len] = '\0';
+				ip = malloc(len + 1);
+				if (ip)
+				{
+					memcpy(ip, body, len);
+					ip[len] = '\0';
+				}
 			}
 		}
 		free(response);
 	}
-
-	closesocket(sock);
 
 	return ip;
 }
@@ -499,7 +635,7 @@ void send_json(SOCKET sock, const char* type, const char* data)
 }
 
 // Receive message length
-int receive_essage_length(SOCKET client_socket, SOCKET* server_socket, uint32_t* length)
+int receive_message_length(SOCKET client_socket, SOCKET* server_socket, uint32_t* length)
 {
 	int received = 0, total_received = 0;
 	while (total_received != sizeof(uint32_t))
@@ -511,16 +647,13 @@ int receive_essage_length(SOCKET client_socket, SOCKET* server_socket, uint32_t*
 				print_error("Client disconnected before sending length\n");
 			else
 				print_error("recv error while reading length\n");
-			closesocket(client_socket);
-			closesocket(*server_socket);
-			free(server_socket);
 
 			return EXIT_FAILURE;
 		}
 		total_received += received;
 	}
 
-	*length = htonl(*length);
+	*length = ntohl(*length);
 
 	return EXIT_SUCCESS;
 }

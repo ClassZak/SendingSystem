@@ -53,7 +53,7 @@ public class Connector {
             byte[] jsonBytes = jsonRequest.toString().getBytes(StandardCharsets.UTF_8);
             int length = jsonBytes.length;
 
-            // Отправляем длину (4 байта, big‑endian) и сами данные
+            // Отправляем длину (4 байта, little‑endian) и сами данные
             dos.writeInt(length);
             dos.write(jsonBytes);
             dos.flush();

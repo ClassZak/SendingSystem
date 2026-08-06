@@ -31,6 +31,8 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 
+import kotlin.NotImplementedError;
+
 public class MainActivity extends AppCompatActivity {
 
     private static final int REQUEST_CODE_PICK_FILE = 1001;
@@ -44,7 +46,7 @@ public class MainActivity extends AppCompatActivity {
     private Button buttonSend;
 
     private RadioGroup radioGroupSource;
-    private RadioButton radioText;
+    private RadioButton radioEncryptYes;
     private RadioButton radioFile;
     private LinearLayout layoutFilePicker;
     private TextView textFileName;
@@ -71,8 +73,8 @@ public class MainActivity extends AppCompatActivity {
         buttonSend = findViewById(R.id.button);
 
         radioGroupSource = findViewById(R.id.radioGroupSource);
-        radioText = findViewById(R.id.radioText);
         radioFile = findViewById(R.id.radioFile);
+        radioEncryptYes = findViewById(R.id.radioEncryptYes);
         layoutFilePicker = findViewById(R.id.layoutFilePicker);
         textFileName = findViewById(R.id.textFileName);
 
@@ -151,11 +153,15 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void onSendClicked() {
+        IPVersion ipVersion = checkBoxIPv4.isChecked() ? IPVersion.IPv4 : IPVersion.IPv6;
         String ip = editTextServerIP.getText().toString().trim();
         String portStr = editTextServerPort.getText().toString().trim();
-        String saveToPath = editTextSaveToPath.getText().toString().trim();
-
         int port;
+        String saveToPath = editTextSaveToPath.getText().toString().trim();
+        boolean isFileMode = radioFile.isChecked();
+        boolean isSSLEncryptEnabled = radioEncryptYes.isChecked();
+
+
         try {
             port = Integer.parseInt(portStr);
             if (port < 1 || port > 65535) {
@@ -167,13 +173,12 @@ public class MainActivity extends AppCompatActivity {
             return;
         }
 
-        IPVersion ipVersion = checkBoxIPv4.isChecked() ? IPVersion.IPv4 : IPVersion.IPv6;
         if (!Connector.isValidInetAddress(ip, ipVersion)) {
             Toast.makeText(this, "Wrong IP-address: " + ip, Toast.LENGTH_SHORT).show();
             return;
         }
 
-        boolean isFileMode = radioFile.isChecked();
+
         String dataToSend;
         SendingType sendingType;
 
@@ -200,6 +205,7 @@ public class MainActivity extends AppCompatActivity {
         connector.sendingType = sendingType;
         connector.sendingData = dataToSend;
         connector.ipVersion = ipVersion;
+        connector.isSSLEncryptEnabled = isSSLEncryptEnabled;
         if (!saveToPath.isEmpty())
             connector.setSaveToPath(Connector.sanitizeFilename(saveToPath));
         else
@@ -212,6 +218,10 @@ public class MainActivity extends AppCompatActivity {
                         Toast.makeText(MainActivity.this, "Response: " + response, Toast.LENGTH_LONG).show()
                 );
             } catch (IOException | org.json.JSONException e) {
+                runOnUiThread(() ->
+                        Toast.makeText(MainActivity.this, "Sending error: " + e.getMessage(), Toast.LENGTH_LONG).show()
+                );
+            } catch (NotImplementedError e){
                 runOnUiThread(() ->
                         Toast.makeText(MainActivity.this, "Sending error: " + e.getMessage(), Toast.LENGTH_LONG).show()
                 );

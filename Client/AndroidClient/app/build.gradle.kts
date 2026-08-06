@@ -3,6 +3,11 @@ plugins {
 }
 
 android {
+    packaging {
+        resources {
+            pickFirsts += "META-INF/versions/9/OSGI-INF/MANIFEST.MF"
+        }
+    }
     namespace = "com.example.sendingsystemclient"
     compileSdk = 35
 
@@ -34,6 +39,7 @@ android {
 dependencies {
 
     implementation(libs.appcompat)
+    implementation(libs.identity.jvm)
     implementation(libs.material)
     implementation(libs.activity)
     implementation(libs.constraintlayout)

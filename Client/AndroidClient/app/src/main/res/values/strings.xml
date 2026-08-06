@@ -11,4 +11,5 @@
     <string name="default_server">192.168.1.2</string>
     <string name="save_to_path">Save to path</string>
     <string name="data_type">Data type</string>
+    <string name="ssl_encrypt_label">SSL encrypt</string>
 </resources>

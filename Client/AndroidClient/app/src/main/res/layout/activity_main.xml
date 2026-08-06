@@ -97,7 +97,6 @@
             android:layout_height="wrap_content"
             android:checked="true"
             android:text="Text" />
-
         <RadioButton
             android:id="@+id/radioFile"
             android:layout_width="wrap_content"
@@ -105,6 +104,36 @@
             android:text="File" />
     </RadioGroup>
 
+    <TextView
+        android:id="@+id/textView6"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:text="@string/ssl_encrypt_label"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.498"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/radioGroupSource" />
+    <RadioGroup
+        android:id="@+id/radioGroupEncryption"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/textView6">
+        <RadioButton
+            android:id="@+id/radioEncryptNo"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:checked="true"
+            android:text="No" />
+        <RadioButton
+            android:id="@+id/radioEncryptYes"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Yes" />
+    </RadioGroup>
     <!-- Блок ввода текста -->
     <EditText
         android:id="@+id/editTextSendingData"
@@ -114,7 +143,7 @@
         android:visibility="visible"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/radioGroupSource" />
+        app:layout_constraintTop_toBottomOf="@+id/radioGroupEncryption" />
 
     <!-- Блок выбора файла (кнопка + имя файла) -->
     <LinearLayout

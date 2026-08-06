@@ -14,6 +14,8 @@ import java.net.InetAddress;
 import java.net.Socket;
 import java.nio.charset.StandardCharsets;
 
+import kotlin.NotImplementedError;
+
 public class Connector {
     private static final int MAX_RESPONSE_SIZE = 1024 * 1024;
     public IPVersion ipVersion = IPVersion.IPv4;
@@ -21,6 +23,7 @@ public class Connector {
     public int serverPort = 5000;
     public String sendingData = "";
     public SendingType sendingType = SendingType.RAW_DATA;
+    public boolean isSSLEncryptEnabled = false;
     @Nullable
     private String saveToPath = null;
     public void setSaveToPath(String saveToPath) {
@@ -32,7 +35,9 @@ public class Connector {
     }
 
     @Nullable
-    public String sendData() throws IOException, JSONException {
+    public String sendData() throws IOException, JSONException, NotImplementedError {
+        if (isSSLEncryptEnabled)
+            throw new NotImplementedError("SSL does not supporting yet");
         try (Socket socket = new Socket(serverIp, serverPort)) {
             socket.setTcpNoDelay(true);
             DataOutputStream dos = new DataOutputStream(socket.getOutputStream());

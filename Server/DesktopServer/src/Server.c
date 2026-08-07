@@ -1,4 +1,9 @@
-﻿#include "PrintProcedures/PrintProcedures.h"
+﻿/*
+ * Server.c
+ * Written by ClassZak
+ * */
+
+#include "PrintProcedures/PrintProcedures.h"
 #include "FileService/FileService.h"
 #include "Base64/Base64.h"
 
@@ -18,6 +23,8 @@
 #include <errno.h>
 #include <sys/select.h>
 #include <fcntl.h>
+#include <pthread.h>
+#include <signal.h>
 #endif
 
 #include <stdarg.h>
@@ -34,6 +41,8 @@
 #define MAX_MESSAGE_SIZE 0x6400000
 #define IP_SOLVER_SERVER_DOMAIN "icanhazip.com"
 #define HTTP_REQUEST "GET / HTTP/1.1\r\nHost: icanhazip.com\r\nConnection: close\r\n\r\n"
+#define FAILED_SIGNAL_HANDLERS_MESSAGE "Failed to set up signal handlers\n"
+#define FAILED_TO_SET_THREAD_ATTRS "Failed to set up thread attributes\n"
 const unsigned short CONNECTION_PORT = 5000;
 const char* CONNECTION_IP = "0.0.0.0";
 const int PORT_RECONNECTION_SLEEP_TIME = 5;
@@ -55,7 +64,23 @@ static inline SOCKET* setup_socket
 	const char* ip, unsigned short port
 );
 void send_json(SOCKET sock, const char* type, const char* data);
-int receive_message_length(SOCKET client_socket, SOCKET* server_socket, uint32_t* length);
+int receive_message_length(SOCKET client_socket, uint32_t* length);
+
+
+
+/* Multithread prepare */
+/* Client service thread */
+void* pthread_client_handler(void* arg);
+typedef struct pthread_client_handler_arg_struct {
+	struct sockaddr_in client_address;
+	int client_socket_fd;
+} pthread_client_handler_arg_struct;
+/* Signal handler */
+void signal_handler(int signal_number);
+pthread_mutex_t mtx_print = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t mtx_fprint = PTHREAD_MUTEX_INITIALIZER;
+volatile sig_atomic_t keep_running = 1;
+
 
 
 // ---------- Main ----------
@@ -72,6 +97,20 @@ int main(int argc, char** argv)
 		exit(startupResult);
 	}
 	print_info("Server initialization\n");
+#else
+	/* Assign signal handler to signal */
+	if (signal(SIGPIPE, SIG_IGN) == SIG_ERR) {
+		print_error(FAILED_SIGNAL_HANDLERS_MESSAGE);
+		return EXIT_FAILURE;
+	}
+	if (signal(SIGTERM, signal_handler) == SIG_ERR) {
+		print_error(FAILED_SIGNAL_HANDLERS_MESSAGE);
+		return EXIT_FAILURE;
+	}
+	if (signal(SIGINT, signal_handler) == SIG_ERR) {
+		print_error(FAILED_SIGNAL_HANDLERS_MESSAGE);
+		return EXIT_FAILURE;
+	}
 #endif
 
 	// Determine external IP (informational only)
@@ -83,38 +122,52 @@ int main(int argc, char** argv)
 	}
 	print_info("Server external IP: %s\n", ipAddressStr);
 
-	while (1)
+
+	// Create server socket and try reconnect to port
+	SOCKET* serverSocket = NULL;
+	struct sockaddr_in serverAddr;
+	do
 	{
-		// Find an available port starting from connectionPort
-		SOCKET* serverSocket = NULL;
-		struct sockaddr_in serverAddr;
-		do
-		{
-			serverSocket = setup_socket(AF_INET, SOCK_STREAM, 0,
-										&serverAddr, CONNECTION_IP, CONNECTION_PORT);
-			if (serverSocket == NULL) {
-				print_error("Failed to connect on port %d\nRestart in%d\n", CONNECTION_PORT, PORT_RECONNECTION_SLEEP_TIME);
-				sleep(PORT_RECONNECTION_SLEEP_TIME);
-			} else {
-				break;
-			}
+		serverSocket = setup_socket(AF_INET, SOCK_STREAM, 0,
+									&serverAddr, CONNECTION_IP, CONNECTION_PORT);
+		if (serverSocket == NULL) {
+			print_error("Failed to connect on port %d\nRestart in%d\n",
+						CONNECTION_PORT, PORT_RECONNECTION_SLEEP_TIME);
+			sleep(PORT_RECONNECTION_SLEEP_TIME);
+		} else {
+			break;
 		}
-		while (true);
-
-		if (listen(*serverSocket, SOMAXCONN) == SOCKET_ERROR)
-		{
-			print_error("Listen failed\n");
-			closesocket(*serverSocket);
-			free(serverSocket);
+	}
+	while (true);
+	// Attempt to listen the port
+	if (listen(*serverSocket, SOMAXCONN) == SOCKET_ERROR)
+	{
+		print_error("Listen failed\n");
+		closesocket(*serverSocket);
+		free(serverSocket);
 #ifdef _WIN32
-			WSACleanup();
+		WSACleanup();
 #endif
-			exit(EXIT_FAILURE);
-		}
+		exit(EXIT_FAILURE);
+	}
+	print_success("Server started and waiting for connections on port %d (%s:%d)\n",
+				  CONNECTION_PORT, ipAddressStr, CONNECTION_PORT);
 
-		print_success("Server started and waiting for connections on port %d (%s:%d)\n",
-					  CONNECTION_PORT, ipAddressStr, CONNECTION_PORT);
 
+	/* Prepare multithread */
+	pthread_t pthread;
+	pthread_attr_t pthread_attr;
+	if (pthread_attr_init(&pthread_attr) != 0) {
+		print_error(FAILED_TO_SET_THREAD_ATTRS);
+		return EXIT_FAILURE;
+	}
+	if (pthread_attr_setdetachstate(&pthread_attr, PTHREAD_CREATE_DETACHED)) {
+		print_error(FAILED_TO_SET_THREAD_ATTRS);
+		return EXIT_FAILURE;
+	}
+
+	while (keep_running)
+	{
 		// Accept one connection
 		SOCKET clientSocket;
 		struct sockaddr_in clientAddr;
@@ -122,187 +175,50 @@ int main(int argc, char** argv)
 		if ((clientSocket = accept(*serverSocket, (struct sockaddr*)&clientAddr,
 								   &clientAddrSize)) == INVALID_SOCKET)
 		{
+			if (errno == EINTR) continue;
+			pthread_mutex_lock(&mtx_print);
 			print_error("Accept failed\n");
-			closesocket(*serverSocket);
-			free(serverSocket);
-#ifdef _WIN32
-			WSACleanup();
-#endif
+			pthread_mutex_unlock(&mtx_print);
 			continue;
 		}
 
 		// Print client IP
 		char clientIP[INET_ADDRSTRLEN];
 		inet_ntop(AF_INET, &clientAddr.sin_addr, clientIP, INET_ADDRSTRLEN);
+		pthread_mutex_lock(&mtx_print);
 		print_info("Client connected: %s:%d\n", clientIP, ntohs(clientAddr.sin_port));
+		pthread_mutex_unlock(&mtx_print);
 
 		// Set receive timeout (to avoid hanging forever if client misbehaves)
 		if (!set_socket_timeout(clientSocket, TIMEOUT_SEC))
 		{
+			pthread_mutex_lock(&mtx_print);
 			print_error("Failed to set socket timeout\n");
+			pthread_mutex_unlock(&mtx_print);
 		}
 
-		uint32_t message_length = 0;
-		if (receive_message_length(clientSocket, serverSocket, &message_length))
-		{
+		// Start client thread
+		pthread_client_handler_arg_struct* pthread_client_handler_args = (pthread_client_handler_arg_struct*)malloc(sizeof(pthread_client_handler_arg_struct));
+		if (pthread_client_handler_args == NULL) {
+			pthread_mutex_lock(&mtx_print);
+			print_error("Failed to allocate memory for thread argument\n");
+			pthread_mutex_unlock(&mtx_print);
 			closesocket(clientSocket);
-			closesocket(*serverSocket);
-			print_error("Failed to receive message length\n");
 			continue;
 		}
-	
-		if (message_length == 0 || message_length > MAX_MESSAGE_SIZE)
-		{
-			print_error("Invalid message length: %u\n", message_length);
+		pthread_client_handler_args->client_address = clientAddr;
+		pthread_client_handler_args->client_socket_fd = clientSocket;
+		if (pthread_create(&pthread, &pthread_attr, pthread_client_handler, (void*)pthread_client_handler_args) != 0) {
+			pthread_mutex_lock(&mtx_print);
+			print_error("Failed to create serve thread for client\n");
+			pthread_mutex_unlock(&mtx_print);
+			free(pthread_client_handler_args);
 			closesocket(clientSocket);
-			closesocket(*serverSocket);
-			free(serverSocket);
 			continue;
 		}
-
-
-		char* json_buffer = (char*)malloc(message_length+1);
-		if (!json_buffer)
-		{
-			print_error("Memory allocation error\n");
-			closesocket(clientSocket);
-			closesocket(*serverSocket);
-			free(serverSocket);
-			continue;
-
-		}
-		json_buffer[message_length] = '\0';
-
-
-		int total_received = 0;
-		while (total_received < message_length)
-		{
-			int n = recv(clientSocket, json_buffer + total_received, message_length - total_received, 0);
-			if (n <= 0)
-				break;
-			total_received += n;
-		}
-		if (total_received != message_length)
-		{
-			print_error("Failed to receive complete message\n");
-			free(json_buffer);
-			closesocket(clientSocket);
-			closesocket(*serverSocket);
-			free(serverSocket);
-			continue;
-		}
-	
-		cJSON* root = cJSON_Parse(json_buffer);
-		/* Process the complete received data (should be one JSON object).
-		 * If "saveToPath" field is empty or does not exists print the client message.
-		 * If "type" is equals "RAW_DATA" save the raw data and decode from base64 instead.
-		 * The "type" field is used to describe which kind of data client sended to
-		 * but the same time "saveToPath" is used to calculate is need to save data in 
-		 * the file or not.
-		 * */
-		if (root)
-		{
-			cJSON* typeItem		= cJSON_GetObjectItem(root, "type");
-			cJSON* dataItem		= cJSON_GetObjectItem(root, "data");
-			cJSON* saveToPath	= cJSON_GetObjectItem(root, "saveToPath");
-			if (cJSON_IsString(typeItem) && cJSON_IsString(dataItem) && (!cJSON_IsString(saveToPath) || saveToPath->valuestring[0]=='\0'))
-			{
-				printf("[%s]: %s\n", typeItem->valuestring, dataItem->valuestring);
-				send_json(clientSocket, "message", "OK");
-			}
-			else if (cJSON_IsString(typeItem) && cJSON_IsString(dataItem) && cJSON_IsString(saveToPath))
-			{
-				const char *type = typeItem->valuestring;
-				const char *data = dataItem->valuestring;
-				if (strcmp(type, "RAW_DATA") == 0)
-					printf("[%s]: %s\n", typeItem->valuestring, dataItem->valuestring);
-
-
-
-				char safe_name[MAX_FILENAME + 1];
-				sanitize_filename(safe_name, sizeof(safe_name), saveToPath->valuestring);
-#ifdef _WIN32
-				_mkdir(SAVE_DIR);
-#else
-				mkdir(SAVE_DIR, 0755);
-#endif
-				int max_length = MAX_FILENAME + SAVE_DIR_LENGTH + 1; // <save_directory>/<file_name>
-				char full_path[max_length];
-				snprintf(full_path, sizeof(full_path), "%s/%s", SAVE_DIR, safe_name);
-
-				FILE* file = fopen(full_path, "wb");
-				if (!file)
-				{
-					print_error("Failed to open %s\n", full_path);
-					send_json(clientSocket, "error", "Cannot save file");
-				}
-				else
-				{
-					if (strcmp(type, "RAW_DATA") == 0)
-					{
-						fputs(data, file);
-						fclose(file);
-						printf("[%s] saved to %s\n", type, full_path);
-						send_json(clientSocket, "message", "File saved");
-					}
-					else if (strcmp(type, "FILE") == 0)
-					{
-						// Decode Base64 binary data
-						size_t b64_len = strlen(data);
-						unsigned char *binary = (unsigned char *)malloc(b64_len);
-						if (binary)
-						{
-							int decoded_len = base64_decode(data, binary, b64_len);
-							if (decoded_len > 0)
-							{
-								fwrite(binary, 1, decoded_len, file);
-								fclose(file);
-								printf("[%s] saved binary file, %d bytes\n", type, decoded_len);
-								send_json(clientSocket, "message", "File saved");
-							}
-							else
-							{
-								fclose(file);
-								print_error("Base64 decode failed\n");
-								send_json(clientSocket, "error", "Base64 decode failed");
-							}
-							free(binary);
-						}
-						else
-						{
-							fclose(file);
-							print_error("Memory allocation error\n");
-							send_json(clientSocket, "error", "Memory error");
-						}
-					}
-					else
-					{
-						// Unknown type. Save the file
-						fputs(data, file);
-						fclose(file);
-						printf("[%s] saved to %s\n", type, full_path);
-						send_json(clientSocket, "message", "File saved");
-					}
-				}
-			}
-			else
-			{
-				print_error("JSON missing 'type' or 'data' field\n");
-				send_json(clientSocket, "error", "Invalid format");
-			}
-			cJSON_Delete(root);
-		}
-		else
-		{
-			print_error("Failed to parse JSON\n");
-			send_json(clientSocket, "error", "JSON parse error");
-		}
-		// Cleanup
-		free(json_buffer);
-		closesocket(clientSocket);
-		closesocket(*serverSocket);
-		free(serverSocket);
 	}
+	closesocket(*serverSocket);
+	free(serverSocket);
 #ifdef _WIN32
 	WSACleanup();
 #endif
@@ -635,7 +551,7 @@ void send_json(SOCKET sock, const char* type, const char* data)
 }
 
 // Receive message length
-int receive_message_length(SOCKET client_socket, SOCKET* server_socket, uint32_t* length)
+int receive_message_length(SOCKET client_socket, uint32_t* length)
 {
 	int received = 0, total_received = 0;
 	while (total_received != sizeof(uint32_t))
@@ -643,10 +559,12 @@ int receive_message_length(SOCKET client_socket, SOCKET* server_socket, uint32_t
 		received = recv(client_socket, ((uint8_t*)length) + total_received, sizeof(uint32_t) - total_received, 0);
 		if (received <= 0)
 		{
+			pthread_mutex_lock(&mtx_print);
 			if (received == 0)
 				print_error("Client disconnected before sending length\n");
 			else
 				print_error("recv error while reading length\n");
+			pthread_mutex_unlock(&mtx_print);
 
 			return EXIT_FAILURE;
 		}
@@ -657,4 +575,227 @@ int receive_message_length(SOCKET client_socket, SOCKET* server_socket, uint32_t
 
 	return EXIT_SUCCESS;
 }
+
+
+
+
+/* Client service thread */
+void* pthread_client_handler(void* arg) {
+	pthread_client_handler_arg_struct* arg_struct = (pthread_client_handler_arg_struct*)arg;
+	int clientSocket = arg_struct->client_socket_fd;
+	struct sockaddr_in client_address = arg_struct->client_address;
+	free(arg);
+	
+	
+
+	uint32_t message_length = 0;
+	if (receive_message_length(clientSocket, &message_length))
+	{
+		closesocket(clientSocket);
+		pthread_mutex_lock(&mtx_print);
+		print_error("Failed to receive message length\n");
+		pthread_mutex_unlock(&mtx_print);
+		return NULL;
+	}
+
+	if (message_length == 0 || message_length > MAX_MESSAGE_SIZE)
+	{
+		pthread_mutex_lock(&mtx_print);
+		print_error("Invalid message length: %u\n", message_length);
+		pthread_mutex_unlock(&mtx_print);
+		closesocket(clientSocket);
+		return NULL;
+	}
+
+
+	char* json_buffer = (char*)malloc(message_length+1);
+	if (!json_buffer)
+	{
+		pthread_mutex_lock(&mtx_print);
+		print_error("Memory allocation error\n");
+		pthread_mutex_unlock(&mtx_print);
+		closesocket(clientSocket);
+		return NULL;
+	}
+	json_buffer[message_length] = '\0';
+
+
+	int total_received = 0;
+	while (total_received < message_length)
+	{
+		int n = recv(clientSocket, json_buffer + total_received, message_length - total_received, 0);
+		if (n <= 0)
+			break;
+		total_received += n;
+	}
+	if (total_received != message_length)
+	{
+		pthread_mutex_lock(&mtx_print);
+		print_error("Failed to receive complete message\n");
+		pthread_mutex_unlock(&mtx_print);
+		free(json_buffer);
+		closesocket(clientSocket);
+		return NULL;
+	}
+
+	cJSON* root = cJSON_Parse(json_buffer);
+	/* Process the complete received data (should be one JSON object).
+	 * If "saveToPath" field is empty or does not exists print the client message.
+	 * If "type" is equals "RAW_DATA" save the raw data and decode from base64 instead.
+	 * The "type" field is used to describe which kind of data client sended to
+	 * but the same time "saveToPath" is used to calculate is need to save data in 
+	 * the file or not.
+	 * */
+	if (root)
+	{
+		cJSON* typeItem		= cJSON_GetObjectItem(root, "type");
+		cJSON* dataItem		= cJSON_GetObjectItem(root, "data");
+		cJSON* saveToPath	= cJSON_GetObjectItem(root, "saveToPath");
+		if (cJSON_IsString(typeItem) && cJSON_IsString(dataItem) && (!cJSON_IsString(saveToPath) || saveToPath->valuestring[0]=='\0'))
+		{
+			pthread_mutex_lock(&mtx_print);
+			printf("[%s]: %s\n", typeItem->valuestring, dataItem->valuestring);
+			pthread_mutex_unlock(&mtx_print);
+			send_json(clientSocket, "message", "OK");
+		}
+		else if (cJSON_IsString(typeItem) && cJSON_IsString(dataItem) && cJSON_IsString(saveToPath))
+		{
+			const char *type = typeItem->valuestring;
+			const char *data = dataItem->valuestring;
+			if (strcmp(type, "RAW_DATA") == 0) {
+				pthread_mutex_lock(&mtx_print);
+				printf("[%s]: %s\n", typeItem->valuestring, dataItem->valuestring);
+				pthread_mutex_unlock(&mtx_print);
+			}
+
+
+
+			char safe_name[MAX_FILENAME + 1];
+			sanitize_filename(safe_name, sizeof(safe_name), saveToPath->valuestring);
+
+
+			pthread_mutex_lock(&mtx_fprint);
+#ifdef _WIN32
+			_mkdir(SAVE_DIR);
+#else
+			mkdir(SAVE_DIR, 0755);
+#endif
+			pthread_mutex_unlock(&mtx_fprint);
+
+
+			int max_length = MAX_FILENAME + SAVE_DIR_LENGTH + 1; // <save_directory>/<file_name>
+			char full_path[max_length];
+			snprintf(full_path, sizeof(full_path), "%s/%s", SAVE_DIR, safe_name);
+
+			pthread_mutex_lock(&mtx_fprint);
+			FILE* file = fopen(full_path, "wb");
+			if (!file)
+			{
+				pthread_mutex_unlock(&mtx_fprint);
+				pthread_mutex_lock(&mtx_print);
+				print_error("Failed to open %s\n", full_path);
+				pthread_mutex_unlock(&mtx_print);
+				send_json(clientSocket, "error", "Cannot save file");
+			}
+			else
+			{
+				if (strcmp(type, "RAW_DATA") == 0)
+				{
+					fputs(data, file);
+					fclose(file);
+					pthread_mutex_unlock(&mtx_fprint);
+
+					pthread_mutex_lock(&mtx_print);
+					printf("[%s] saved to %s\n", type, full_path);
+					pthread_mutex_unlock(&mtx_print);
+					send_json(clientSocket, "message", "File saved");
+				}
+				else if (strcmp(type, "FILE") == 0)
+				{
+					// Decode Base64 binary data
+					size_t b64_len = strlen(data);
+					unsigned char *binary = (unsigned char *)malloc(b64_len);
+					if (binary)
+					{
+						int decoded_len = base64_decode(data, binary, b64_len);
+						if (decoded_len > 0)
+						{
+							fwrite(binary, 1, decoded_len, file);
+							fclose(file);
+							pthread_mutex_unlock(&mtx_fprint);
+
+							pthread_mutex_lock(&mtx_print);
+							printf("[%s] saved binary file, %d bytes\n", type, decoded_len);
+							pthread_mutex_unlock(&mtx_print);
+							send_json(clientSocket, "message", "File saved");
+						}
+						else
+						{
+							fclose(file);
+							pthread_mutex_unlock(&mtx_fprint);
+
+							pthread_mutex_lock(&mtx_print);
+							print_error("Base64 decode failed\n");
+							pthread_mutex_unlock(&mtx_print);
+							send_json(clientSocket, "error", "Base64 decode failed");
+						}
+						free(binary);
+					}
+					else
+					{
+						fclose(file);
+						pthread_mutex_unlock(&mtx_fprint);
+
+						pthread_mutex_lock(&mtx_print);
+						print_error("Memory allocation error\n");
+						pthread_mutex_unlock(&mtx_print);
+						send_json(clientSocket, "error", "Memory error");
+					}
+				}
+				else
+				{
+					// Unknown type. Save the file
+					fputs(data, file);
+					fclose(file);
+					pthread_mutex_unlock(&mtx_fprint);
+
+					pthread_mutex_lock(&mtx_print);
+					printf("[%s] saved to %s\n", type, full_path);
+					pthread_mutex_unlock(&mtx_print);
+					send_json(clientSocket, "message", "File saved");
+				}
+			}
+		}
+		else
+		{
+			pthread_mutex_lock(&mtx_print);
+			print_error("JSON missing 'type' or 'data' field\n");
+			pthread_mutex_unlock(&mtx_print);
+			send_json(clientSocket, "error", "Invalid format");
+		}
+		cJSON_Delete(root);
+	}
+	else
+	{
+		pthread_mutex_lock(&mtx_print);
+		print_error("Failed to parse JSON\n");
+		pthread_mutex_unlock(&mtx_print);
+		send_json(clientSocket, "error", "JSON parse error");
+	}
+	// Cleanup
+	free(json_buffer);
+	closesocket(clientSocket);
+
+	return NULL;
+}
+
+
+
+/* Signal handler */
+void signal_handler(int signal_number) {
+	if (signal_number == SIGTERM || signal_number == SIGINT)
+		keep_running = 0;
+}
+
+
 

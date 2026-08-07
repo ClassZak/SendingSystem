@@ -18,6 +18,7 @@ import kotlin.NotImplementedError;
 
 public class Connector {
     private static final int MAX_RESPONSE_SIZE = 1024 * 1024;
+    private static final int TIMEOUT_TIME_MILLISECONDS = 5000;
     public IPVersion ipVersion = IPVersion.IPv4;
     public String serverIp = "127.0.0.1";
     public int serverPort = 5000;
@@ -39,7 +40,8 @@ public class Connector {
         if (isSSLEncryptEnabled)
             throw new NotImplementedError("SSL does not supporting yet");
         try (Socket socket = new Socket(serverIp, serverPort)) {
-            socket.setTcpNoDelay(true);
+            socket.setTcpNoDelay(false);
+            socket.setSoTimeout(TIMEOUT_TIME_MILLISECONDS);
             DataOutputStream dos = new DataOutputStream(socket.getOutputStream());
             DataInputStream dis = new DataInputStream(socket.getInputStream());
 

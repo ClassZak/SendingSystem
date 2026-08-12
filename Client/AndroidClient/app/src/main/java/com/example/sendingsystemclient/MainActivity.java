@@ -30,8 +30,8 @@ import com.example.sendingsystemclient.dto.SendingType;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.Objects;
 
-import kotlin.NotImplementedError;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -52,6 +52,8 @@ public class MainActivity extends AppCompatActivity {
     private TextView textFileName;
 
     private byte[] fileBytes;
+
+    Connector connector = new Connector();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -91,7 +93,9 @@ public class MainActivity extends AppCompatActivity {
                     ByteArrayOutputStream buffer = new ByteArrayOutputStream();
                     byte[] chunk = new byte[4096];
                     int n;
-                    while ((n = inputStream.read(chunk)) != -1) {
+                    while (true) {
+                        assert inputStream != null;
+                        if ((n = inputStream.read(chunk)) == -1) break;
                         buffer.write(chunk, 0, n);
                     }
                     fileBytes = buffer.toByteArray();
@@ -107,7 +111,7 @@ public class MainActivity extends AppCompatActivity {
 
     private String getFileName(Uri uri) {
         String result = null;
-        if (uri.getScheme().equals("content")) {
+        if (Objects.equals(uri.getScheme(), "content")) {
             try (Cursor cursor = getContentResolver().query(uri, null, null, null, null)) {
                 if (cursor != null && cursor.moveToFirst()) {
                     int nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME);
@@ -199,7 +203,6 @@ public class MainActivity extends AppCompatActivity {
             sendingType = SendingType.RAW_DATA;
         }
 
-        Connector connector = new Connector();
         connector.serverIp = ip;
         connector.serverPort = port;
         connector.sendingType = sendingType;
@@ -213,6 +216,9 @@ public class MainActivity extends AppCompatActivity {
 
         new Thread(() -> {
             try {
+                if (connector.getIsSending()){
+                    throw new Exception("Data sending right now. Please, wait.");
+                }
                 String response = connector.sendData();
                 runOnUiThread(() ->
                         Toast.makeText(MainActivity.this, "Response: " + response, Toast.LENGTH_LONG).show()

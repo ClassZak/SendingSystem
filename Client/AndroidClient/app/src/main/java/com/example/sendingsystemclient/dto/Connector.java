@@ -13,22 +13,20 @@ import java.io.IOException;
 import java.net.Inet4Address;
 import java.net.Inet6Address;
 import java.net.InetAddress;
+import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.nio.charset.StandardCharsets;
 import java.security.KeyManagementException;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
-import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 
 import javax.net.ssl.SSLContext;
-import javax.net.ssl.SSLException;
 import javax.net.ssl.SSLSocket;
 import javax.net.ssl.SSLSocketFactory;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.X509TrustManager;
 
-import kotlin.NotImplementedError;
 
 public class Connector {
     private static final int MAX_RESPONSE_SIZE = 1024 * 1024;
@@ -49,21 +47,33 @@ public class Connector {
         return this.saveToPath;
     }
 
-
-
-
-    @Nullable
-    public String sendData() throws IOException, JSONException, Exception {
-        if (!isSSLEncryptEnabled) {
-            return this.sendDataRaw();
-        } else {
-            return this.sendDataSSL();
-        }
+    private boolean isSending = false;
+    public boolean getIsSending(){
+        return isSending;
     }
 
+
+
+
     @Nullable
-    public String sendDataRaw() throws IOException, JSONException {
-        try (Socket socket = new Socket(serverIp, serverPort)) {
+    public String sendData() throws Exception {
+        this.isSending = true;
+
+        String receivedData;
+        if (!isSSLEncryptEnabled) {
+            receivedData = this.sendDataRaw();
+        } else {
+            receivedData = this.sendDataSSL();
+        }
+
+        this.isSending = false;
+
+        return  receivedData;
+    }
+
+    private String sendDataRaw() throws IOException, JSONException {
+        try (Socket socket = new Socket()) {
+            socket.connect(new InetSocketAddress(serverIp, serverPort), TIMEOUT_TIME_MILLISECONDS);
             socket.setTcpNoDelay(false);
             socket.setSoTimeout(TIMEOUT_TIME_MILLISECONDS);
             DataOutputStream dos = new DataOutputStream(socket.getOutputStream());
@@ -99,15 +109,15 @@ public class Connector {
     }
 
 
-    @Nullable
-    public String sendDataSSL() throws IOException, JSONException, Exception {
+    private String sendDataSSL() throws Exception {
         // Set up the SSL socket
         SSLSocketFactory socketFactory;
         // Throws Exception
         socketFactory = this.createTrustAllSocketFactory();
 
         DataInputStream dis;
-        try (SSLSocket socket = (SSLSocket) socketFactory.createSocket(serverIp, serverPort)) {
+        try (SSLSocket socket = (SSLSocket)socketFactory.createSocket()) {
+            socket.connect(new InetSocketAddress(serverIp, serverPort));
             socket.startHandshake();
 
             socket.setTcpNoDelay(false);
@@ -175,13 +185,13 @@ public class Connector {
                 new X509TrustManager() {
                     @SuppressLint("TrustAllX509TrustManager")
                     @Override
-                    public void checkClientTrusted(X509Certificate[] x509Certificates, String s) throws CertificateException {
+                    public void checkClientTrusted(X509Certificate[] x509Certificates, String s) {
 
                     }
 
                     @SuppressLint("TrustAllX509TrustManager")
                     @Override
-                    public void checkServerTrusted(X509Certificate[] x509Certificates, String s) throws CertificateException {
+                    public void checkServerTrusted(X509Certificate[] x509Certificates, String s) {
 
                     }
 

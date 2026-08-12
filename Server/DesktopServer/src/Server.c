@@ -6,6 +6,7 @@
 #include "PrintProcedures/PrintProcedures.h"
 #include "FileService/FileService.h"
 #include "Base64/Base64.h"
+#include "OpenSSL/OpenSSL.h"
 
 #ifdef _WIN32
 #include <WinSock2.h>
@@ -32,7 +33,15 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+
+
+/* External dependencies */
 #include <cJSON.h>
+#include <openssl/ssl.h>
+#include <openssl/err.h>
+#include <openssl/crypto.h>
+
+
 
 
 // ---------- Constants and macros ----------
@@ -46,6 +55,9 @@
 const unsigned short CONNECTION_PORT = 5000;
 const char* CONNECTION_IP = "0.0.0.0";
 const int PORT_RECONNECTION_SLEEP_TIME = 5;
+const bool SSL_ENCRYPT = false;
+const char* PUBLIC_KEY_FILE = "server.crt";
+const char* PRIVATE_KEY_FILE = "server.key";
 
 #ifndef _WIN32
 typedef int SOCKET;
@@ -65,7 +77,7 @@ static inline SOCKET* setup_socket
 );
 void send_json(SOCKET sock, const char* type, const char* data);
 int receive_message_length(SOCKET client_socket, uint32_t* length);
-
+int receive_message_length_SSL(SSL* ssl, uint32_t* length);
 
 
 /* Multithread prepare */
@@ -75,18 +87,27 @@ typedef struct pthread_client_handler_arg_struct {
 	struct sockaddr_in client_address;
 	int client_socket_fd;
 } pthread_client_handler_arg_struct;
-/* Signal handler */
-void signal_handler(int signal_number);
+typedef struct pthread_client_handler_arg_struct_encrypted {
+	struct sockaddr_in client_address;
+	SSL_CTX* ctx;
+	int client_socket_fd;
+} pthread_client_handler_arg_struct_encrypted;
 pthread_mutex_t mtx_print = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t mtx_fprint = PTHREAD_MUTEX_INITIALIZER;
 volatile sig_atomic_t keep_running = 1;
+
+
+/* Signal handling */
+int set_up_signals_handling();
+void signal_handler(int signal_number);
+
 
 
 
 // ---------- Main ----------
 int main(int argc, char** argv)
 {
-
+	print_pwd();
 #ifdef _WIN32
 	setlocale(LC_ALL, "Russian");
 	WSADATA wsaData;
@@ -99,19 +120,25 @@ int main(int argc, char** argv)
 	print_info("Server initialization\n");
 #else
 	/* Assign signal handler to signal */
-	if (signal(SIGPIPE, SIG_IGN) == SIG_ERR) {
-		print_error(FAILED_SIGNAL_HANDLERS_MESSAGE);
-		return EXIT_FAILURE;
-	}
-	if (signal(SIGTERM, signal_handler) == SIG_ERR) {
-		print_error(FAILED_SIGNAL_HANDLERS_MESSAGE);
-		return EXIT_FAILURE;
-	}
-	if (signal(SIGINT, signal_handler) == SIG_ERR) {
+	if (set_up_signals_handling()) {
 		print_error(FAILED_SIGNAL_HANDLERS_MESSAGE);
 		return EXIT_FAILURE;
 	}
 #endif
+	/* Set up the SSL */
+	SSL_CTX* ctx = NULL;
+	if (SSL_ENCRYPT) {
+		SSL_library_init();
+		OpenSSL_add_all_algorithms();
+		SSL_load_error_strings();
+
+		if ((ctx = set_up_server_SSL_certificate(PUBLIC_KEY_FILE, PRIVATE_KEY_FILE)) == NULL) {
+			print_all_SSL_errors();
+			return EXIT_FAILURE;
+		}
+
+		print_success("SSL context was installed correctly\n");
+	}
 
 	// Determine external IP (informational only)
 	char* ipAddressStr = get_global_ip();
@@ -198,7 +225,12 @@ int main(int argc, char** argv)
 		}
 
 		// Start client thread
-		pthread_client_handler_arg_struct* pthread_client_handler_args = (pthread_client_handler_arg_struct*)malloc(sizeof(pthread_client_handler_arg_struct));
+		void* pthread_client_handler_args = NULL;
+		if (!SSL_ENCRYPT) {
+			pthread_client_handler_args = (pthread_client_handler_arg_struct*)malloc(sizeof(pthread_client_handler_arg_struct));
+		} else {
+			pthread_client_handler_args = (pthread_client_handler_arg_struct_encrypted*)malloc(sizeof(pthread_client_handler_arg_struct_encrypted));
+		}
 		if (pthread_client_handler_args == NULL) {
 			pthread_mutex_lock(&mtx_print);
 			print_error("Failed to allocate memory for thread argument\n");
@@ -206,8 +238,16 @@ int main(int argc, char** argv)
 			closesocket(clientSocket);
 			continue;
 		}
-		pthread_client_handler_args->client_address = clientAddr;
-		pthread_client_handler_args->client_socket_fd = clientSocket;
+		if (!SSL_ENCRYPT) {
+			pthread_client_handler_arg_struct* pthread_client_handler_args_default = (pthread_client_handler_arg_struct*)pthread_client_handler_args;
+			pthread_client_handler_args_default->client_address = clientAddr;
+			pthread_client_handler_args_default->client_socket_fd = clientSocket;
+		} else {
+			pthread_client_handler_arg_struct_encrypted* pthread_client_handler_args_encrypted = (pthread_client_handler_arg_struct_encrypted*)pthread_client_handler_args;
+			pthread_client_handler_args_encrypted->client_address = clientAddr;
+			pthread_client_handler_args_encrypted->client_socket_fd = clientSocket;
+			pthread_client_handler_args_encrypted->ctx = ctx;
+		}
 		if (pthread_create(&pthread, &pthread_attr, pthread_client_handler, (void*)pthread_client_handler_args) != 0) {
 			pthread_mutex_lock(&mtx_print);
 			print_error("Failed to create serve thread for client\n");
@@ -223,6 +263,11 @@ int main(int argc, char** argv)
 	WSACleanup();
 #endif
 	free(ipAddressStr);
+
+	if (SSL_ENCRYPT) {
+		SSL_CTX_free(ctx);
+		OPENSSL_cleanup();
+	}
 
 	return EXIT_SUCCESS;
 }
@@ -549,14 +594,60 @@ void send_json(SOCKET sock, const char* type, const char* data)
 	}
 	cJSON_Delete(root);
 }
+void send_json_SSL(SSL* ssl, const char* type, const char* data)
+{
+	cJSON* root = cJSON_CreateObject();
+	cJSON_AddStringToObject(root, "type", type);
+	cJSON_AddStringToObject(root, "data", data);
+	char* jsonStr = cJSON_PrintUnformatted(root);
+	if (jsonStr)
+	{
+		uint32_t message_length = (uint32_t)strlen(jsonStr);
+		uint32_t message_length_net = htonl(message_length);
+		SSL_write(ssl, (char*)&message_length_net, sizeof(message_length_net));
+		SSL_write(ssl, jsonStr, message_length);
+		free(jsonStr);
+	}
+	cJSON_Delete(root);
+}
 
 // Receive message length
 int receive_message_length(SOCKET client_socket, uint32_t* length)
 {
+	if (length == NULL || !client_socket)
+		return EXIT_FAILURE;
+
 	int received = 0, total_received = 0;
 	while (total_received != sizeof(uint32_t))
 	{
 		received = recv(client_socket, ((uint8_t*)length) + total_received, sizeof(uint32_t) - total_received, 0);
+		if (received <= 0)
+		{
+			pthread_mutex_lock(&mtx_print);
+			if (received == 0)
+				print_error("Client disconnected before sending length\n");
+			else
+				print_error("recv error while reading length\n");
+			pthread_mutex_unlock(&mtx_print);
+
+			return EXIT_FAILURE;
+		}
+		total_received += received;
+	}
+
+	*length = ntohl(*length);
+
+	return EXIT_SUCCESS;
+}
+int receive_message_length_SSL(SSL* ssl, uint32_t* length)
+{
+	if (ssl == NULL || length == NULL)
+		return EXIT_FAILURE;
+
+	int received = 0, total_received = 0;
+	while (total_received != sizeof(uint32_t))
+	{
+		received = SSL_read(ssl, ((uint8_t*)length) + total_received, sizeof(uint32_t) - total_received);
 		if (received <= 0)
 		{
 			pthread_mutex_lock(&mtx_print);
@@ -581,21 +672,58 @@ int receive_message_length(SOCKET client_socket, uint32_t* length)
 
 /* Client service thread */
 void* pthread_client_handler(void* arg) {
-	pthread_client_handler_arg_struct* arg_struct = (pthread_client_handler_arg_struct*)arg;
-	int clientSocket = arg_struct->client_socket_fd;
-	struct sockaddr_in client_address = arg_struct->client_address;
-	free(arg);
+	int clientSocket;
+	struct sockaddr_in client_address;
+	SSL* ssl = NULL;
+	if (!SSL_ENCRYPT) {
+		pthread_client_handler_arg_struct* arg_struct = (pthread_client_handler_arg_struct*)arg;
+		clientSocket = arg_struct->client_socket_fd;
+		client_address = arg_struct->client_address;
+		free(arg);
+	} else {
+		pthread_client_handler_arg_struct_encrypted* arg_struct = (pthread_client_handler_arg_struct_encrypted*)arg;
+		clientSocket = arg_struct->client_socket_fd;
+		client_address = arg_struct->client_address;
+		SSL_CTX* ctx = arg_struct->ctx;
+
+		free(arg);
+
+
+		if ((ssl = SSL_new(ctx)) == NULL) {
+			print_all_SSL_errors();
+			return NULL;
+		}
+		if (1 != (SSL_set_fd(ssl, clientSocket))) {
+			print_all_SSL_errors();
+			return NULL;
+		}
+		if (SSL_accept(ssl) <= 0) {
+			print_all_SSL_errors();
+			return NULL;
+		}
+	}
 	
 	
 
 	uint32_t message_length = 0;
-	if (receive_message_length(clientSocket, &message_length))
-	{
-		closesocket(clientSocket);
-		pthread_mutex_lock(&mtx_print);
-		print_error("Failed to receive message length\n");
-		pthread_mutex_unlock(&mtx_print);
-		return NULL;
+	if (!SSL_ENCRYPT) {
+		if (receive_message_length(clientSocket, &message_length)) {
+			closesocket(clientSocket);
+			pthread_mutex_lock(&mtx_print);
+			print_error("Failed to receive message length\n");
+			pthread_mutex_unlock(&mtx_print);
+			return NULL;
+		}
+	} else {
+		if (receive_message_length_SSL(ssl, &message_length)) {
+			closesocket(clientSocket);
+			pthread_mutex_lock(&mtx_print);
+			print_error("Failed to receive message length\n");
+			pthread_mutex_unlock(&mtx_print);
+			SSL_shutdown(ssl);
+			SSL_free(ssl);
+			return NULL;
+		}
 	}
 
 	if (message_length == 0 || message_length > MAX_MESSAGE_SIZE)
@@ -604,6 +732,10 @@ void* pthread_client_handler(void* arg) {
 		print_error("Invalid message length: %u\n", message_length);
 		pthread_mutex_unlock(&mtx_print);
 		closesocket(clientSocket);
+		if (SSL_ENCRYPT) {
+			SSL_shutdown(ssl);
+			SSL_free(ssl);
+		}
 		return NULL;
 	}
 
@@ -615,6 +747,10 @@ void* pthread_client_handler(void* arg) {
 		print_error("Memory allocation error\n");
 		pthread_mutex_unlock(&mtx_print);
 		closesocket(clientSocket);
+		if (SSL_ENCRYPT) {
+			SSL_shutdown(ssl);
+			SSL_free(ssl);
+		}
 		return NULL;
 	}
 	json_buffer[message_length] = '\0';
@@ -623,18 +759,28 @@ void* pthread_client_handler(void* arg) {
 	int total_received = 0;
 	while (total_received < message_length)
 	{
-		int n = recv(clientSocket, json_buffer + total_received, message_length - total_received, 0);
+		int n = 0;
+		if (!SSL_ENCRYPT) {
+			n = recv(clientSocket, json_buffer + total_received, message_length - total_received, 0);
+		} else {
+			n = SSL_read(ssl, json_buffer + total_received, message_length - total_received);
+		}
+		
+		
 		if (n <= 0)
 			break;
 		total_received += n;
 	}
-	if (total_received != message_length)
-	{
+	if (total_received != message_length) {
 		pthread_mutex_lock(&mtx_print);
 		print_error("Failed to receive complete message\n");
 		pthread_mutex_unlock(&mtx_print);
 		free(json_buffer);
 		closesocket(clientSocket);
+		if (SSL_ENCRYPT) {
+			SSL_shutdown(ssl);
+			SSL_free(ssl);
+		}
 		return NULL;
 	}
 
@@ -656,7 +802,11 @@ void* pthread_client_handler(void* arg) {
 			pthread_mutex_lock(&mtx_print);
 			printf("[%s]: %s\n", typeItem->valuestring, dataItem->valuestring);
 			pthread_mutex_unlock(&mtx_print);
-			send_json(clientSocket, "message", "OK");
+			if (!SSL_ENCRYPT) {
+				send_json(clientSocket, "message", "OK");
+			} else {
+				send_json_SSL(ssl, "message", "OK");
+			}
 		}
 		else if (cJSON_IsString(typeItem) && cJSON_IsString(dataItem) && cJSON_IsString(saveToPath))
 		{
@@ -695,7 +845,12 @@ void* pthread_client_handler(void* arg) {
 				pthread_mutex_lock(&mtx_print);
 				print_error("Failed to open %s\n", full_path);
 				pthread_mutex_unlock(&mtx_print);
-				send_json(clientSocket, "error", "Cannot save file");
+	
+				if (!SSL_ENCRYPT) {
+					send_json(clientSocket, "error", "Cannot save file");
+				} else {
+					send_json_SSL(ssl, "error", "Cannot save file");
+				}
 			}
 			else
 			{
@@ -708,7 +863,12 @@ void* pthread_client_handler(void* arg) {
 					pthread_mutex_lock(&mtx_print);
 					printf("[%s] saved to %s\n", type, full_path);
 					pthread_mutex_unlock(&mtx_print);
-					send_json(clientSocket, "message", "File saved");
+
+					if (!SSL_ENCRYPT) {
+						send_json(clientSocket, "message", "File saved");
+					} else {
+						send_json_SSL(ssl, "message", "File saved");
+					}
 				}
 				else if (strcmp(type, "FILE") == 0)
 				{
@@ -727,7 +887,11 @@ void* pthread_client_handler(void* arg) {
 							pthread_mutex_lock(&mtx_print);
 							printf("[%s] saved binary file, %d bytes\n", type, decoded_len);
 							pthread_mutex_unlock(&mtx_print);
-							send_json(clientSocket, "message", "File saved");
+							if (!SSL_ENCRYPT) {
+								send_json(clientSocket, "message", "File saved");
+							} else {
+								send_json_SSL(ssl, "message", "File saved");
+							}
 						}
 						else
 						{
@@ -737,7 +901,11 @@ void* pthread_client_handler(void* arg) {
 							pthread_mutex_lock(&mtx_print);
 							print_error("Base64 decode failed\n");
 							pthread_mutex_unlock(&mtx_print);
-							send_json(clientSocket, "error", "Base64 decode failed");
+							if (!SSL_ENCRYPT) {
+								send_json(clientSocket, "error", "Base64 decode failed");
+							} else {
+								send_json_SSL(ssl, "error", "Base64 decode failed");
+							}
 						}
 						free(binary);
 					}
@@ -749,7 +917,11 @@ void* pthread_client_handler(void* arg) {
 						pthread_mutex_lock(&mtx_print);
 						print_error("Memory allocation error\n");
 						pthread_mutex_unlock(&mtx_print);
-						send_json(clientSocket, "error", "Memory error");
+						if (!SSL_ENCRYPT) {
+							send_json(clientSocket, "error", "Memory error");
+						} else {
+							send_json_SSL(ssl, "error", "Memory error");
+						}
 					}
 				}
 				else
@@ -762,7 +934,11 @@ void* pthread_client_handler(void* arg) {
 					pthread_mutex_lock(&mtx_print);
 					printf("[%s] saved to %s\n", type, full_path);
 					pthread_mutex_unlock(&mtx_print);
-					send_json(clientSocket, "message", "File saved");
+					if (!SSL_ENCRYPT) {
+						send_json(clientSocket, "message", "File saved");
+					} else {
+						send_json_SSL(ssl, "message", "File saved");
+					}
 				}
 			}
 		}
@@ -771,7 +947,11 @@ void* pthread_client_handler(void* arg) {
 			pthread_mutex_lock(&mtx_print);
 			print_error("JSON missing 'type' or 'data' field\n");
 			pthread_mutex_unlock(&mtx_print);
-			send_json(clientSocket, "error", "Invalid format");
+			if (!SSL_ENCRYPT) {
+				send_json(clientSocket, "error", "Invalid format");
+			} else {
+				send_json_SSL(ssl, "error", "Invalid format");
+			}
 		}
 		cJSON_Delete(root);
 	}
@@ -780,10 +960,21 @@ void* pthread_client_handler(void* arg) {
 		pthread_mutex_lock(&mtx_print);
 		print_error("Failed to parse JSON\n");
 		pthread_mutex_unlock(&mtx_print);
-		send_json(clientSocket, "error", "JSON parse error");
+		
+		if (!SSL_ENCRYPT) {
+			send_json(clientSocket, "error", "JSON parse error");
+		} else {
+			send_json_SSL(ssl, "error", "JSON parse error");
+		}
+
 	}
 	// Cleanup
 	free(json_buffer);
+
+	if (SSL_ENCRYPT) {
+		SSL_shutdown(ssl);
+		SSL_free(ssl);
+	}
 	closesocket(clientSocket);
 
 	return NULL;
@@ -792,6 +983,26 @@ void* pthread_client_handler(void* arg) {
 
 
 /* Signal handler */
+int set_up_signals_handling() {
+	struct sigaction sa;
+	memset((void*)&sa, 0, sizeof(sa));
+
+	sa.sa_flags = 0; // Without SA_RESTART what	used to restart syscalls after error
+	sa.sa_handler = signal_handler;
+	sigemptyset(&sa.sa_mask);
+
+	if (sigaction(SIGPIPE, &(struct sigaction){SIG_IGN}, NULL) == -1) {
+		return EXIT_FAILURE;
+	}
+	if (sigaction(SIGTERM, &sa, NULL) == -1) {
+		return EXIT_FAILURE;
+	}
+	if (sigaction(SIGINT, &sa, NULL) == -1) {
+		return EXIT_FAILURE;
+	}
+
+	return EXIT_SUCCESS;
+}
 void signal_handler(int signal_number) {
 	if (signal_number == SIGTERM || signal_number == SIGINT)
 		keep_running = 0;

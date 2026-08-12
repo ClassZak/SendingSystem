@@ -1,10 +1,20 @@
 #include "FileService.h"
+#include "../PrintProcedures/PrintProcedures.h"
 
 #include <string.h>
 #include <stdio.h>
 #include <ctype.h>
 #include <stdlib.h>
 #include <regex.h>
+#ifdef _WIN32
+    #include <direct.h>
+    #define get_pwd _getcwd
+#else
+    #include <unistd.h>
+    #define get_pwd getcwd
+#endif
+
+
 
 
 void sanitize_filename(char* dest, size_t dest_size, const char* src)
@@ -68,5 +78,15 @@ void sanitize_filename(char* dest, size_t dest_size, const char* src)
 		strncpy(dest, final, dest_size);
 
 	dest[dest_size - 1] = '\0';
+}
+
+
+void print_pwd() {
+	char buffer[0x1000]; // 4096
+	if (get_pwd(buffer, sizeof(buffer))) {
+		print_info("Current working directory:%s\n", buffer);
+	} else {
+		print_error("Error getting current directory\n");
+	}
 }
 

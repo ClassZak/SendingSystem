@@ -221,10 +221,6 @@ public class MainActivity extends AppCompatActivity {
                 runOnUiThread(() ->
                         Toast.makeText(MainActivity.this, "Sending error: " + e.getMessage(), Toast.LENGTH_LONG).show()
                 );
-            } catch (NotImplementedError e){
-                runOnUiThread(() ->
-                        Toast.makeText(MainActivity.this, "Sending error: " + e.getMessage(), Toast.LENGTH_LONG).show()
-                );
             } catch (Exception e) {
                 runOnUiThread(() ->
                         Toast.makeText(MainActivity.this, "Error: " + e.getMessage(), Toast.LENGTH_LONG).show()

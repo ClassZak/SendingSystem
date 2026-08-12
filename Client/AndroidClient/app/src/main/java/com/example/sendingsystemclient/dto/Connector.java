@@ -1,5 +1,7 @@
 package com.example.sendingsystemclient.dto;
 
+import android.annotation.SuppressLint;
+
 import androidx.annotation.Nullable;
 
 import org.json.JSONException;
@@ -13,6 +15,18 @@ import java.net.Inet6Address;
 import java.net.InetAddress;
 import java.net.Socket;
 import java.nio.charset.StandardCharsets;
+import java.security.KeyManagementException;
+import java.security.NoSuchAlgorithmException;
+import java.security.SecureRandom;
+import java.security.cert.CertificateException;
+import java.security.cert.X509Certificate;
+
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLException;
+import javax.net.ssl.SSLSocket;
+import javax.net.ssl.SSLSocketFactory;
+import javax.net.ssl.TrustManager;
+import javax.net.ssl.X509TrustManager;
 
 import kotlin.NotImplementedError;
 
@@ -35,17 +49,27 @@ public class Connector {
         return this.saveToPath;
     }
 
+
+
+
     @Nullable
-    public String sendData() throws IOException, JSONException, NotImplementedError {
-        if (isSSLEncryptEnabled)
-            throw new NotImplementedError("SSL does not supporting yet");
+    public String sendData() throws IOException, JSONException, Exception {
+        if (!isSSLEncryptEnabled) {
+            return this.sendDataRaw();
+        } else {
+            return this.sendDataSSL();
+        }
+    }
+
+    @Nullable
+    public String sendDataRaw() throws IOException, JSONException {
         try (Socket socket = new Socket(serverIp, serverPort)) {
             socket.setTcpNoDelay(false);
             socket.setSoTimeout(TIMEOUT_TIME_MILLISECONDS);
             DataOutputStream dos = new DataOutputStream(socket.getOutputStream());
             DataInputStream dis = new DataInputStream(socket.getInputStream());
 
-            // Формируем JSON
+            // create JSON
             JSONObject jsonRequest = new JSONObject();
             jsonRequest.put("type", sendingType.toString());
             jsonRequest.put("data", sendingData);
@@ -55,15 +79,15 @@ public class Connector {
             byte[] jsonBytes = jsonRequest.toString().getBytes(StandardCharsets.UTF_8);
             int length = jsonBytes.length;
 
-            // Отправляем длину (4 байта, little‑endian) и сами данные
+            // Send message length (4 байта, little‑endian)
             dos.writeInt(length);
             dos.write(jsonBytes);
             dos.flush();
 
-            // Сообщаем серверу, что больше данных не будет
+            // Stop data sending
             socket.shutdownOutput();
 
-            // Читаем ответ: длина (int) + JSON
+            // Receive the response (int) + JSON
             int responseLength = dis.readInt();
             if (responseLength <= 0 || responseLength > MAX_RESPONSE_SIZE) {
                 throw new IOException("Invalid response length: " + responseLength);
@@ -73,6 +97,56 @@ public class Connector {
             return new String(responseBytes, StandardCharsets.UTF_8);
         }
     }
+
+
+    @Nullable
+    public String sendDataSSL() throws IOException, JSONException, Exception {
+        // Set up the SSL socket
+        SSLSocketFactory socketFactory;
+        // Throws Exception
+        socketFactory = this.createTrustAllSocketFactory();
+
+        DataInputStream dis;
+        try (SSLSocket socket = (SSLSocket) socketFactory.createSocket(serverIp, serverPort)) {
+            socket.startHandshake();
+
+            socket.setTcpNoDelay(false);
+            socket.setSoTimeout(TIMEOUT_TIME_MILLISECONDS);
+            DataOutputStream dos = new DataOutputStream(socket.getOutputStream());
+            dis = new DataInputStream(socket.getInputStream());
+
+            // Create JSON
+            JSONObject jsonRequest = new JSONObject();
+            jsonRequest.put("type", sendingType.toString());
+            jsonRequest.put("data", sendingData);
+            if (saveToPath != null && !saveToPath.isEmpty())
+                jsonRequest.put("saveToPath", saveToPath);
+
+            byte[] jsonBytes = jsonRequest.toString().getBytes(StandardCharsets.UTF_8);
+            int length = jsonBytes.length;
+
+            // Send message length (4 байта, little‑endian)
+            dos.writeInt(length);
+            dos.write(jsonBytes);
+            dos.flush();
+
+            // Stop data sending
+            socket.shutdownOutput();
+
+            // Receive the response (int) + JSON
+            int responseLength = dis.readInt();
+            if (responseLength <= 0 || responseLength > MAX_RESPONSE_SIZE) {
+                throw new IOException("Invalid response length: " + responseLength);
+            }
+            byte[] responseBytes = new byte[responseLength];
+            dis.readFully(responseBytes);
+            return new String(responseBytes, StandardCharsets.UTF_8);
+        }
+    }
+
+
+
+
     public static String sanitizeFilename(String input) {
         if (input == null || input.isEmpty()) return "";
         String safe = input.replaceAll("[^a-zA-Z0-9._-]", "_");
@@ -92,5 +166,34 @@ public class Connector {
             // invalid
         }
         return false;
+    }
+
+
+
+    private SSLSocketFactory createTrustAllSocketFactory() throws KeyManagementException, NoSuchAlgorithmException {
+        @SuppressLint("CustomX509TrustManager") TrustManager[] trustAllManager = new TrustManager[] {
+                new X509TrustManager() {
+                    @SuppressLint("TrustAllX509TrustManager")
+                    @Override
+                    public void checkClientTrusted(X509Certificate[] x509Certificates, String s) throws CertificateException {
+
+                    }
+
+                    @SuppressLint("TrustAllX509TrustManager")
+                    @Override
+                    public void checkServerTrusted(X509Certificate[] x509Certificates, String s) throws CertificateException {
+
+                    }
+
+                    @Override
+                    public X509Certificate[] getAcceptedIssuers() {
+                        return new X509Certificate[0];
+                    }
+                }
+        };
+        SSLContext sslContext = SSLContext.getInstance("TLS");
+        sslContext.init(null, trustAllManager, new SecureRandom());
+
+        return sslContext.getSocketFactory();
     }
 }

@@ -44,6 +44,8 @@ FetchContent_Declare(
 	GIT_TAG			v1.7.18 
 )
 FetchContent_MakeAvailable(cJSON)
+# Find packeges
+find_package(OpenSSL REQUIRED)
 
 
 
@@ -61,10 +63,12 @@ add_executable(
 	${CMAKE_SOURCE_DIR}/src/FileService/FileService.c
 	${CMAKE_SOURCE_DIR}/src/Base64/Base64.h
 	${CMAKE_SOURCE_DIR}/src/Base64/Base64.c
+	${CMAKE_SOURCE_DIR}/src/OpenSSL/OpenSSL.h
+	${CMAKE_SOURCE_DIR}/src/OpenSSL/OpenSSL.c
 )
 
 # Install dependecies
-target_link_libraries(SendingSystem PRIVATE cjson)
+target_link_libraries(SendingSystem PRIVATE cjson OpenSSL::SSL OpenSSL::Crypto)
 target_include_directories(SendingSystem PRIVATE ${cJSON_SOURCE_DIR})
 get_target_property(SendingSystem_INCLUDES SendingSystem INCLUDE_DIRECTORIES)
 message(STATUS "SendingSystem includes: ${SendingSystem_INCLUDES}")

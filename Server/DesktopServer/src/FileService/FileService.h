@@ -12,4 +12,5 @@
 #endif
 
 void sanitize_filename(char* dest, size_t dest_size, const char* src);
+void print_pwd();
 

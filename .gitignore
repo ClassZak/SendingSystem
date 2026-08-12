@@ -30,3 +30,9 @@ local.properties
 build/
 bin/
 out/
+
+
+#SSL keys
+server.crt
+server.key
+compile_commands.json

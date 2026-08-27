@@ -1,5 +1,7 @@
 package com.example.sendingsystemclient;
 
+import static android.app.Activity.RESULT_OK;
+
 import android.content.Intent;
 import android.database.Cursor;
 import android.net.Uri;

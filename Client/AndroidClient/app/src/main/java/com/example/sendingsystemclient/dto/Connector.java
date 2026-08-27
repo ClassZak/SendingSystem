@@ -60,13 +60,17 @@ public class Connector {
         this.isSending = true;
 
         String receivedData;
-        if (!isSSLEncryptEnabled) {
-            receivedData = this.sendDataRaw();
-        } else {
-            receivedData = this.sendDataSSL();
+        try {
+            if (!isSSLEncryptEnabled) {
+                receivedData = this.sendDataRaw();
+            } else {
+                receivedData = this.sendDataSSL();
+            }
+        } catch (Exception e) {
+            throw e;
+        } finally {
+            this.isSending = false;
         }
-
-        this.isSending = false;
 
         return  receivedData;
     }

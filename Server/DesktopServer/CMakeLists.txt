@@ -65,6 +65,11 @@ add_executable(
 	${CMAKE_SOURCE_DIR}/src/Base64/Base64.c
 	${CMAKE_SOURCE_DIR}/src/OpenSSL/OpenSSL.h
 	${CMAKE_SOURCE_DIR}/src/OpenSSL/OpenSSL.c
+	${CMAKE_SOURCE_DIR}/src/Connection/connection.h
+	${CMAKE_SOURCE_DIR}/src/Connection/connection_socket.h
+	${CMAKE_SOURCE_DIR}/src/Connection/connection_socket.c
+	${CMAKE_SOURCE_DIR}/src/Connection/connection_SSL.h
+	${CMAKE_SOURCE_DIR}/src/Connection/connection_SSL.c
 )
 
 # Install dependecies

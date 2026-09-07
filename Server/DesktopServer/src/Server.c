@@ -40,6 +40,7 @@
 #include <openssl/ssl.h>
 #include <openssl/err.h>
 #include <openssl/crypto.h>
+#include <sqlite3.h>
 
 
 
@@ -590,6 +591,11 @@ static inline SOCKET* setup_socket(int af, int type, int protocol,
 
 
 // ---------- Send JSON response ----------
+/*
+ * Response types:
+ *	1) error
+ *	2) message
+ * */
 void send_json(connection_t* connection, const char* type, const char* data) {
 	cJSON* root = cJSON_CreateObject();
 	cJSON_AddStringToObject(root, "type", type);

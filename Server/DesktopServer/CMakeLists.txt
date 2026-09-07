@@ -46,6 +46,7 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(cJSON)
 # Find packeges
 find_package(OpenSSL REQUIRED)
+find_package(SQLite3 REQUIRED)
 
 
 
@@ -73,7 +74,13 @@ add_executable(
 )
 
 # Install dependecies
-target_link_libraries(SendingSystem PRIVATE cjson OpenSSL::SSL OpenSSL::Crypto)
+target_link_libraries(SendingSystem 
+	PRIVATE
+	cjson
+	OpenSSL::SSL
+	OpenSSL::Crypto
+	SQLite::SQLite3
+)
 target_include_directories(SendingSystem PRIVATE ${cJSON_SOURCE_DIR})
 get_target_property(SendingSystem_INCLUDES SendingSystem INCLUDE_DIRECTORIES)
 message(STATUS "SendingSystem includes: ${SendingSystem_INCLUDES}")

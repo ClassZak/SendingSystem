@@ -1,7 +1,5 @@
 package com.example.sendingsystemclient;
 
-import static android.app.Activity.RESULT_OK;
-
 import android.content.Intent;
 import android.database.Cursor;
 import android.net.Uri;
@@ -25,13 +23,21 @@ import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 
-import com.example.sendingsystemclient.dto.Connector;
-import com.example.sendingsystemclient.dto.IPVersion;
-import com.example.sendingsystemclient.dto.SendingType;
+import com.example.sendingsystemclient.data.model.Connection;
+import com.example.sendingsystemclient.data.model.Message;
+import com.example.sendingsystemclient.data.model.MessageStatus;
+import com.example.sendingsystemclient.data.model.MessageType;
+import com.example.sendingsystemclient.domain.model.Connector;
+import com.example.sendingsystemclient.domain.model.IPVersion;
+import com.example.sendingsystemclient.domain.model.ResponseType;
+import com.example.sendingsystemclient.domain.model.SendingType;
+import com.example.sendingsystemclient.domain.model.ServerResponse;
+import com.example.sendingsystemclient.domain.viewmodel.SendDataViewModel;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.List;
 import java.util.Objects;
 
 
@@ -53,6 +59,9 @@ public class MainActivity extends AppCompatActivity {
     private LinearLayout layoutFilePicker;
     private TextView textFileName;
 
+    private App app;
+    private SendDataViewModel sendDataViewModel;
+
     private byte[] fileBytes;
 
     Connector connector = new Connector();
@@ -67,6 +76,9 @@ public class MainActivity extends AppCompatActivity {
             v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom);
             return insets;
         });
+
+        app = (App) getApplication();
+        sendDataViewModel = new SendDataViewModel(app);
 
         editTextServerIP = findViewById(R.id.editTextServerIP);
         editTextServerPort = findViewById(R.id.editTextServerPort);
@@ -83,6 +95,8 @@ public class MainActivity extends AppCompatActivity {
         textFileName = findViewById(R.id.textFileName);
 
         setUpListeners();
+
+        setLastSuccessfulConnection();
     }
 
     @Override
@@ -129,6 +143,23 @@ public class MainActivity extends AppCompatActivity {
         return result;
     }
 
+    private void setLastSuccessfulConnection() {
+        Thread setLastSuccessfulConnectionThread = new Thread(()->{
+            Message lastSuccessfulMessage = app.getMessageRepository().getLastSuccessful();
+            if (lastSuccessfulMessage == null)
+                return;
+            Connection lastSuccessfulConnection = app.getConnectionRepository().getById(lastSuccessfulMessage.connectionId);
+            if (lastSuccessfulConnection == null)
+                return;
+            runOnUiThread(()->{
+                editTextServerIP.setText(lastSuccessfulConnection.ip);
+                editTextServerPort.setText(String.valueOf(lastSuccessfulConnection.port));
+                radioEncryptYes.setChecked(lastSuccessfulConnection.isSSLEncrypted);
+            });
+        });
+        setLastSuccessfulConnectionThread.start();
+    }
+
     private void setUpListeners() {
         checkBoxIPv4.setOnCheckedChangeListener((buttonView, isChecked) -> {
             if (isChecked) checkBoxIPv6.setChecked(false);
@@ -155,36 +186,16 @@ public class MainActivity extends AppCompatActivity {
             startActivityForResult(intent, REQUEST_CODE_PICK_FILE);
         });
 
-        buttonSend.setOnClickListener(v -> onSendClicked());
+        buttonSend.setOnClickListener(v -> onSendClickedNew());
     }
 
-    private void onSendClicked() {
+    private void onSendClickedNew() {
         IPVersion ipVersion = checkBoxIPv4.isChecked() ? IPVersion.IPv4 : IPVersion.IPv6;
-        String ip = editTextServerIP.getText().toString().trim();
+        String serverIp = editTextServerIP.getText().toString().trim();
         String portStr = editTextServerPort.getText().toString().trim();
-        int port;
         String saveToPath = editTextSaveToPath.getText().toString().trim();
         boolean isFileMode = radioFile.isChecked();
         boolean isSSLEncryptEnabled = radioEncryptYes.isChecked();
-
-
-        try {
-            port = Integer.parseInt(portStr);
-            if (port < 1 || port > 65535) {
-                Toast.makeText(this, "The port must be between 1 and 65535", Toast.LENGTH_SHORT).show();
-                return;
-            }
-        } catch (NumberFormatException e) {
-            Toast.makeText(this, "Wrong port", Toast.LENGTH_SHORT).show();
-            return;
-        }
-
-        if (!Connector.isValidInetAddress(ip, ipVersion)) {
-            Toast.makeText(this, "Wrong IP-address: " + ip, Toast.LENGTH_SHORT).show();
-            return;
-        }
-
-
         String dataToSend;
         SendingType sendingType;
 
@@ -205,35 +216,22 @@ public class MainActivity extends AppCompatActivity {
             sendingType = SendingType.RAW_DATA;
         }
 
-        connector.serverIp = ip;
-        connector.serverPort = port;
-        connector.sendingType = sendingType;
-        connector.sendingData = dataToSend;
-        connector.ipVersion = ipVersion;
-        connector.isSSLEncryptEnabled = isSSLEncryptEnabled;
-        if (!saveToPath.isEmpty())
-            connector.setSaveToPath(Connector.sanitizeFilename(saveToPath));
-        else
-            connector.setSaveToPath(null);
-
-        new Thread(() -> {
-            try {
-                if (connector.getIsSending()){
-                    throw new Exception("Data sending right now. Please, wait.");
-                }
-                String response = connector.sendData();
+        try {
+            String response = sendDataViewModel.SendData(ipVersion, serverIp, portStr, sendingType, dataToSend, isSSLEncryptEnabled, saveToPath);
+            ServerResponse serverResponse = ServerResponse.fromJson(response);
+            if (serverResponse.type == ResponseType.Error) {
+                throw new Exception(serverResponse.data);
+            } else {
                 runOnUiThread(() ->
-                        Toast.makeText(MainActivity.this, "Response: " + response, Toast.LENGTH_LONG).show()
-                );
-            } catch (IOException | org.json.JSONException e) {
-                runOnUiThread(() ->
-                        Toast.makeText(MainActivity.this, "Sending error: " + e.getMessage(), Toast.LENGTH_LONG).show()
-                );
-            } catch (Exception e) {
-                runOnUiThread(() ->
-                        Toast.makeText(MainActivity.this, "Error: " + e.getMessage(), Toast.LENGTH_LONG).show()
+                        Toast.makeText(MainActivity.this, "Server response: " + serverResponse.data, Toast.LENGTH_LONG).show()
                 );
             }
-        }).start();
+        } catch (Exception e) {
+            runOnUiThread(() ->
+                    Toast.makeText(MainActivity.this, "Error: " + e.getMessage(), Toast.LENGTH_LONG).show()
+            );
+        } finally {
+            fileBytes = null;
+        }
     }
 }

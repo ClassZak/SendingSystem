@@ -1,4 +1,4 @@
-package com.example.sendingsystemclient.dto;
+package com.example.sendingsystemclient.domain.model;
 
 import android.annotation.SuppressLint;
 

@@ -69,6 +69,23 @@ const char* PRIVATE_KEY_FILE = "server.key";
 
 3. Generate server public and private key files if SSL_ENCRYPT flag allowed.
 
+4. Build with Cmake
+
+Find corresponding preset
+```bash
+cmake --list-presets
+```
+
+Build with preset
+
+```bash
+mkdir -p build && cd build
+cmake .. --list-presets
+cmake .. --preset linux-debug
+cd ..
+cmake --build ./build --preset
+```
+
 4. Launch
 
 ```bash

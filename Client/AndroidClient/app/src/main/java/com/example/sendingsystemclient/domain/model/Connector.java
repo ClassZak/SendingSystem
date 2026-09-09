@@ -66,8 +66,6 @@ public class Connector {
             } else {
                 receivedData = this.sendDataSSL();
             }
-        } catch (Exception e) {
-            throw e;
         } finally {
             this.isSending = false;
         }

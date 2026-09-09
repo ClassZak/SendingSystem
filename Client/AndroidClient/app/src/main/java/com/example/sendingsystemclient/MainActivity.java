@@ -25,8 +25,6 @@ import androidx.core.view.WindowInsetsCompat;
 
 import com.example.sendingsystemclient.data.model.Connection;
 import com.example.sendingsystemclient.data.model.Message;
-import com.example.sendingsystemclient.data.model.MessageStatus;
-import com.example.sendingsystemclient.data.model.MessageType;
 import com.example.sendingsystemclient.domain.model.Connector;
 import com.example.sendingsystemclient.domain.model.IPVersion;
 import com.example.sendingsystemclient.domain.model.ResponseType;
@@ -35,9 +33,9 @@ import com.example.sendingsystemclient.domain.model.ServerResponse;
 import com.example.sendingsystemclient.domain.viewmodel.SendDataViewModel;
 
 import java.io.ByteArrayOutputStream;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.List;
 import java.util.Objects;
 
 
@@ -97,6 +95,72 @@ public class MainActivity extends AppCompatActivity {
         setUpListeners();
 
         setLastSuccessfulConnection();
+
+        handleIncomingIntent(getIntent());
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        handleIncomingIntent(intent);
+    }
+
+    private void handleIncomingIntent(Intent intent) {
+        if (intent == null) {
+            return;
+        }
+
+        String action = intent.getAction();
+        if (Intent.ACTION_SEND.equals(action)) {
+            handleSendIntent(intent);
+        }
+    }
+
+    private void handleSendIntent(Intent intent) {
+        String type = intent.getType();
+        if (type == null) {
+            return;
+        }
+
+        if (type.startsWith("text/")) {
+            String sharedText = intent.getStringExtra(Intent.EXTRA_TEXT);
+            if (sharedText != null && !sharedText.isEmpty()) {
+                radioGroupSource.check(R.id.radioText);
+                editTextSendingData.setText(sharedText);
+            }
+        } else {
+            Uri uri = intent.getParcelableExtra(Intent.EXTRA_STREAM);
+            if (uri != null) {
+                loadFileFromUri(uri);
+            }
+        }
+    }
+
+    private void loadFileFromUri(Uri uri) {
+        try {
+            getContentResolver().takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
+        } catch (SecurityException e) {
+            // Не критично, просто не удалось закрепить
+        }
+        try (InputStream inputStream = getContentResolver().openInputStream(uri)) {
+            ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+            byte[] chunk = new byte[0x1000];
+            int readed;
+            while (inputStream != null && (readed = inputStream.read(chunk)) != -1) {
+                buffer.write(chunk, 0, readed);
+            }
+
+            fileBytes = buffer.toByteArray();
+            String fileName = getFileName(uri);
+            textFileName.setText(fileName != null ? fileName : "shared");
+
+            radioGroupSource.check(R.id.radioFile);
+        } catch (FileNotFoundException e) {
+            Toast.makeText(this, "File not found error: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+        } catch (IOException e) {
+            Toast.makeText(this, "File read error: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+        }
     }
 
     @Override

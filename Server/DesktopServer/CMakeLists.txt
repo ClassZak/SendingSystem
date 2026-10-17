@@ -1,4 +1,8 @@
-﻿cmake_minimum_required(VERSION 3.28...4.4)
+﻿# CMakeLists.txt
+# Written by ClassZak
+
+
+cmake_minimum_required(VERSION 3.28...4.4)
 
 
 
@@ -35,6 +39,8 @@ project(SendingSystem VERSION 1.0
 )
 
 
+
+
 # Fetch dependecies
 set(CMAKE_POLICY_VERSION_MINIMUM 3.5)
 include(FetchContent)
@@ -43,6 +49,18 @@ FetchContent_Declare(
 	GIT_REPOSITORY	https://github.com/DaveGamble/cJSON.git
 	GIT_TAG			v1.7.18 
 )
+
+set(CIVETWEB_BUILD_TESTING OFF CACHE BOOL "" FORCE)
+set(CIVETWEB_ENABLE_SSL_DYNAMIC_LOADING OFF CACHE BOOL "" FORCE)
+set(CIVETWEB_ENABLE_CXX OFF CACHE BOOL "" FORCE)
+set(CIVETWEB_ENABLE_LUA OFF CACHE BOOL "" FORCE)
+set(CIVETWEB_ENABLE_DUKTAPE OFF CACHE BOOL "" FORCE)
+FetchContent_Declare(
+    civetweb
+    GIT_REPOSITORY https://github.com/civetweb/civetweb.git
+    GIT_TAG        v1.16
+)
+FetchContent_MakeAvailable(civetweb)
 FetchContent_MakeAvailable(cJSON)
 # Find packeges
 find_package(OpenSSL REQUIRED)
@@ -56,6 +74,9 @@ find_package(SQLite3 REQUIRED)
 # Sources
 add_executable(
 	SendingSystem 
+	${CMAKE_SOURCE_DIR}/src/App.c
+	${CMAKE_SOURCE_DIR}/src/Client.c
+	${CMAKE_SOURCE_DIR}/src/Client.h
 	${CMAKE_SOURCE_DIR}/src/Server.c
 	${CMAKE_SOURCE_DIR}/src/Server.h
 	${CMAKE_SOURCE_DIR}/src/PrintProcedures/PrintProcedures.h
@@ -77,6 +98,7 @@ add_executable(
 target_link_libraries(SendingSystem 
 	PRIVATE
 	cjson
+	civetweb-c-library
 	OpenSSL::SSL
 	OpenSSL::Crypto
 	SQLite::SQLite3
@@ -88,6 +110,11 @@ if(TARGET cjson)
     message(STATUS "Target cjson EXISTS")
 else()
     message(FATAL_ERROR "Target cjson NOT FOUND")
+endif()
+if(TARGET civetweb-c-library)
+	message(STATUS "Target civetweb (civetweb-c-library) EXISTS")
+else()
+	message(FATAL_ERROR "Target civetweb (civetweb-c-library) NOT FOUND")
 endif()
 
 

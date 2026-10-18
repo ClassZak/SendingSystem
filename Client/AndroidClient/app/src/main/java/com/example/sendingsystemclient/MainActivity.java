@@ -289,13 +289,12 @@ public class MainActivity extends AppCompatActivity {
                 runOnUiThread(() ->
                         Toast.makeText(MainActivity.this, "Server response: " + serverResponse.data, Toast.LENGTH_LONG).show()
                 );
+                fileBytes = null;
             }
         } catch (Exception e) {
             runOnUiThread(() ->
                     Toast.makeText(MainActivity.this, "Error: " + e.getMessage(), Toast.LENGTH_LONG).show()
             );
-        } finally {
-            fileBytes = null;
         }
     }
 }

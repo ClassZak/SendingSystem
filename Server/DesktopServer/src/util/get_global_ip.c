@@ -2,7 +2,7 @@
 #include "config.h"
 #include "../PrintProcedures/PrintProcedures.h"
 
-#include <civetweb.h>	 /* сам подтянет WinSock / sys/socket.h */
+#include <civetweb.h>
 
 #include <stdio.h>
 #include <stdlib.h>

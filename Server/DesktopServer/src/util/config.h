@@ -8,7 +8,7 @@
 static const char* CONNECTION_IP = "0.0.0.0";
 
 /* ---------- TLS ---------- */
-static const bool SSL_ENCRYPT        = true;
+static const bool SSL_ENCRYPT        = false;
 static const char* PUBLIC_KEY_FILE   = "server.crt";
 static const char* PRIVATE_KEY_FILE  = "server.key";
 

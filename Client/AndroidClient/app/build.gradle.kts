@@ -37,7 +37,7 @@ android {
 }
 
 dependencies {
-
+    implementation(libs.okhttp3)
     implementation(libs.appcompat)
     implementation(libs.identity.jvm)
     implementation(libs.material)

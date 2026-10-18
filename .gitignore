@@ -30,6 +30,7 @@ local.properties
 build/
 bin/
 out/
+compile_commands.json
 
 
 #SSL keys

@@ -1,5 +1,6 @@
 ﻿# CMakeLists.txt
 # Written by ClassZak
+# C11
 
 
 cmake_minimum_required(VERSION 3.28...4.4)
@@ -26,8 +27,6 @@ if(WIN32 AND CMAKE_SYSTEM_VERSION VERSION_EQUAL 6.1)
 	set(CMAKE_TRY_COMPILE_TARGET_TYPE STATIC_LIBRARY CACHE STRING "" FORCE)
 	
 	# C11 for GCC compiler
-	set(CMAKE_C_STANDARD 11)
-	set(CMAKE_C_STANDARD_REQUIRED ON)
 endif()
 
 
@@ -37,6 +36,8 @@ project(SendingSystem VERSION 1.0
 		DESCRIPTION "Application for data transfering"
 		LANGUAGES C
 )
+set(CMAKE_C_STANDARD 11)
+set(CMAKE_C_STANDARD_REQUIRED ON)
 
 
 
@@ -92,6 +93,15 @@ add_executable(
 	${CMAKE_SOURCE_DIR}/src/Connection/connection_socket.c
 	${CMAKE_SOURCE_DIR}/src/Connection/connection_SSL.h
 	${CMAKE_SOURCE_DIR}/src/Connection/connection_SSL.c
+	${CMAKE_SOURCE_DIR}/src/util/config.h
+	${CMAKE_SOURCE_DIR}/src/util/get_global_ip.h
+	${CMAKE_SOURCE_DIR}/src/util/get_global_ip.c
+	${CMAKE_SOURCE_DIR}/src/util/receive_message_length.h
+	${CMAKE_SOURCE_DIR}/src/util/receive_message_length.c
+	${CMAKE_SOURCE_DIR}/src/util/set_socket_timeout.h
+	${CMAKE_SOURCE_DIR}/src/util/set_socket_timeout.c
+	${CMAKE_SOURCE_DIR}/src/util/setup_socket.h
+	${CMAKE_SOURCE_DIR}/src/util/setup_socket.c
 )
 
 # Install dependecies
@@ -116,6 +126,12 @@ if(TARGET civetweb-c-library)
 else()
 	message(FATAL_ERROR "Target civetweb (civetweb-c-library) NOT FOUND")
 endif()
+
+
+
+
+# Compile definitions
+target_compile_definitions(civetweb-c-library PRIVATE USE_WEBSOCKET)
 
 
 

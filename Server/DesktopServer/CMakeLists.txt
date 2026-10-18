@@ -1,6 +1,6 @@
 ﻿# CMakeLists.txt
 # Written by ClassZak
-# C11
+# C11 C eleven
 
 
 cmake_minimum_required(VERSION 3.28...4.4)
@@ -57,9 +57,9 @@ set(CIVETWEB_ENABLE_CXX OFF CACHE BOOL "" FORCE)
 set(CIVETWEB_ENABLE_LUA OFF CACHE BOOL "" FORCE)
 set(CIVETWEB_ENABLE_DUKTAPE OFF CACHE BOOL "" FORCE)
 FetchContent_Declare(
-    civetweb
-    GIT_REPOSITORY https://github.com/civetweb/civetweb.git
-    GIT_TAG        v1.16
+	civetweb
+	GIT_REPOSITORY https://github.com/civetweb/civetweb.git
+	GIT_TAG		v1.16
 )
 FetchContent_MakeAvailable(civetweb)
 FetchContent_MakeAvailable(cJSON)
@@ -102,6 +102,9 @@ add_executable(
 	${CMAKE_SOURCE_DIR}/src/util/set_socket_timeout.c
 	${CMAKE_SOURCE_DIR}/src/util/setup_socket.h
 	${CMAKE_SOURCE_DIR}/src/util/setup_socket.c
+	${CMAKE_SOURCE_DIR}/src/handlers/http_json.c
+	${CMAKE_SOURCE_DIR}/src/handlers/api_send.c
+	${CMAKE_SOURCE_DIR}/src/handlers/api_upload.c
 )
 
 # Install dependecies
@@ -117,9 +120,9 @@ target_include_directories(SendingSystem PRIVATE ${cJSON_SOURCE_DIR})
 get_target_property(SendingSystem_INCLUDES SendingSystem INCLUDE_DIRECTORIES)
 message(STATUS "SendingSystem includes: ${SendingSystem_INCLUDES}")
 if(TARGET cjson)
-    message(STATUS "Target cjson EXISTS")
+	message(STATUS "Target cjson EXISTS")
 else()
-    message(FATAL_ERROR "Target cjson NOT FOUND")
+	message(FATAL_ERROR "Target cjson NOT FOUND")
 endif()
 if(TARGET civetweb-c-library)
 	message(STATUS "Target civetweb (civetweb-c-library) EXISTS")

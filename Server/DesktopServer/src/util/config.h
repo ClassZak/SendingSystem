@@ -1,12 +1,24 @@
 #pragma once
+#include <stdbool.h>
 // Definitions
-#define BUFFER_SIZE 4096
-#define TIMEOUT_SEC 50
-#define MAX_MESSAGE_SIZE 0x6400000
-#define IP_SOLVER_SERVER_DOMAIN "icanhazip.com"
-#define HTTP_REQUEST "GET / HTTP/1.1\r\nHost: icanhazip.com\r\nConnection: close\r\n\r\n"
+
+/* ---------- Network------- */
+#define CONNECTION_PORT  5000
+#define TLS_PORT         5443
+static const char* CONNECTION_IP = "0.0.0.0";
+
+/* ---------- TLS ---------- */
+static const bool SSL_ENCRYPT        = true;
+static const char* PUBLIC_KEY_FILE   = "server.crt";
+static const char* PRIVATE_KEY_FILE  = "server.key";
+
+/* ---------- Limits ------- */
+#define MAX_MESSAGE_SIZE  0x6400000   /* 100 MB — body limit /api/send */
+#define MAX_UPLOAD_SIZE   0x64000000  /* 1 GB   — file limit           */
+#define REQUEST_TIMEOUT_MS 30000
+
+/* ---------- Utils -------- */
 #define FAILED_SIGNAL_HANDLERS_MESSAGE "Failed to set up signal handlers\n"
-#define FAILED_TO_SET_THREAD_ATTRS "Failed to set up thread attributes\n"
 
 
 

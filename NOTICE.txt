@@ -1,0 +1,89 @@
+Sending System
+Copyright (C) 2025-2026 ClassZak
+
+This product is licensed under the GNU General Public License v3.0 or
+later. See the LICENSE file for the full text, or visit:
+    https://www.gnu.org/licenses/gpl-3.0.html
+
+This product includes the following third-party software. Each component
+is used under the terms of its own license; the copyright notices below
+are preserved as required by those licenses.
+
+
+────────────────────────────────────────────────────────────────────────
+ CivetWeb
+────────────────────────────────────────────────────────────────────────
+ Copyright (c) 2013-2025 Cesanta Software Limited
+ Copyright (c) 2004-2013 Sergey Lyubka
+ License: MIT
+ Full text: LICENSES/MIT.txt
+
+
+────────────────────────────────────────────────────────────────────────
+ cJSON
+────────────────────────────────────────────────────────────────────────
+ Copyright (c) 2009-2017 Dave Gamble and cJSON contributors
+ License: MIT
+ Full text: LICENSES/MIT.txt
+
+
+────────────────────────────────────────────────────────────────────────
+ OpenSSL
+────────────────────────────────────────────────────────────────────────
+ Copyright (c) 1998-2025 The OpenSSL Project Authors
+ Copyright (c) 1995-1998 Eric A. Young, Tim J. Hudson
+ License: Apache License 2.0
+ Full text: LICENSES/Apache-2.0.txt
+
+
+────────────────────────────────────────────────────────────────────────
+ libcurl
+────────────────────────────────────────────────────────────────────────
+ Copyright (c) 1996-2025 Daniel Stenberg, <daniel@haxx.se>, and many
+ contributors.
+ License: curl license (MIT-like)
+ Full text: LICENSES/curl.txt
+
+
+────────────────────────────────────────────────────────────────────────
+ miniupnpc
+────────────────────────────────────────────────────────────────────────
+ Copyright (c) 2005-2025 Thomas Bernard
+ License: BSD 3-Clause
+ Full text: LICENSES/BSD-3-Clause.txt
+
+
+────────────────────────────────────────────────────────────────────────
+ SQLite
+────────────────────────────────────────────────────────────────────────
+ The author disclaims copyright to this source code. In place of a
+ legal notice, here is a blessing:
+     May you do good and not evil.
+     May you find forgiveness for yourself and forgive others.
+     May you share freely, never taking more than you give.
+ License: Public Domain
+ 
+
+────────────────────────────────────────────────────────────────────────
+ AndroidX libraries (OkHttp, Room, AppCompat, Activity, Core, ...)
+────────────────────────────────────────────────────────────────────────
+ Copyright (c) The Android Open Source Project
+ Copyright (c) Square, Inc. (OkHttp)
+ License: Apache License 2.0
+ Full text: LICENSES/Apache-2.0.txt
+
+
+────────────────────────────────────────────────────────────────────────
+ Material Components for Android
+────────────────────────────────────────────────────────────────────────
+ Copyright (c) Google LLC
+ License: Apache License 2.0
+ Full text: LICENSES/Apache-2.0.txt
+
+
+────────────────────────────────────────────────────────────────────────
+
+All third-party components listed above are used in compliance with
+their respective licenses. If you believe a notice is missing or
+incorrect, please open an issue in the project repository:
+    https://github.com/ClassZak/SendingSystem/issues

@@ -66,6 +66,9 @@ FetchContent_MakeAvailable(cJSON)
 # Find packeges
 find_package(OpenSSL REQUIRED)
 find_package(SQLite3 REQUIRED)
+find_package(CURL REQUIRED)
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(MINIUPNPC REQUIRED miniupnpc)
 
 
 
@@ -94,13 +97,11 @@ add_executable(
 	${CMAKE_SOURCE_DIR}/src/Connection/connection_SSL.h
 	${CMAKE_SOURCE_DIR}/src/Connection/connection_SSL.c
 	${CMAKE_SOURCE_DIR}/src/util/config.h
-	${CMAKE_SOURCE_DIR}/src/util/get_global_ip.h
-	${CMAKE_SOURCE_DIR}/src/util/get_global_ip.c
-	${CMAKE_SOURCE_DIR}/src/util/receive_message_length.h
+	${CMAKE_SOURCE_DIR}/src/util/get_server_ip_addresses.c
+	${CMAKE_SOURCE_DIR}/src/util/get_public_ip_http.c
+	${CMAKE_SOURCE_DIR}/src/util/get_public_ip_upnp.c
 	${CMAKE_SOURCE_DIR}/src/util/receive_message_length.c
-	${CMAKE_SOURCE_DIR}/src/util/set_socket_timeout.h
 	${CMAKE_SOURCE_DIR}/src/util/set_socket_timeout.c
-	${CMAKE_SOURCE_DIR}/src/util/setup_socket.h
 	${CMAKE_SOURCE_DIR}/src/util/setup_socket.c
 	${CMAKE_SOURCE_DIR}/src/handlers/http_json.c
 	${CMAKE_SOURCE_DIR}/src/handlers/api_send.c
@@ -115,6 +116,9 @@ target_link_libraries(SendingSystem
 	OpenSSL::SSL
 	OpenSSL::Crypto
 	SQLite::SQLite3
+	CURL::libcurl
+	miniupnpc
+
 )
 target_include_directories(SendingSystem PRIVATE ${cJSON_SOURCE_DIR})
 get_target_property(SendingSystem_INCLUDES SendingSystem INCLUDE_DIRECTORIES)

@@ -18,15 +18,15 @@ extern pthread_mutex_t mtx_print;
 extern pthread_mutex_t mtx_fprint;
 
 typedef struct {
-	FILE	 *fp;
+	FILE	* fp;
 	char	  path[MAX_FILENAME + SAVE_DIR_LENGTH + 2];
 	long long size;
 } upload_ctx_t;
 
-static int on_field_found(const char *key, const char *filename,
-						  char *path, size_t pathlen, void *user_data) {
+static int on_field_found(const char* key, const char* filename,
+						  char* path, size_t pathlen, void* user_data) {
 	(void)key;
-	upload_ctx_t *u = user_data;
+	upload_ctx_t* u = user_data;
 
 	if (!filename || !filename[0]) return MG_FORM_FIELD_STORAGE_GET;
 
@@ -49,20 +49,23 @@ static int on_field_found(const char *key, const char *filename,
 
 	if (!u->fp) {
 		print_error("Cannot open %s for write\n", path);
+
 		return MG_FORM_FIELD_STORAGE_ABORT;
 	}
 	print_info("[UPLOAD] Receiving %s\n", path);
+
 	return MG_FORM_FIELD_STORAGE_STORE;
 }
 
-static int on_field_get(const char *key, const char *value,
-						size_t valuelen, void *user_data) {
+static int on_field_get(const char* key, const char* value,
+						size_t valuelen, void* user_data) {
 	(void)key; (void)value; (void)valuelen; (void)user_data;
+
 	return 0;
 }
 
-static int on_field_store(const char *path, long long size, void *user_data) {
-	upload_ctx_t *u = user_data;
+static int on_field_store(const char* path, long long size, void* user_data) {
+	upload_ctx_t* u = user_data;
 	if (u->fp) {
 		pthread_mutex_lock(&mtx_fprint);
 		fclose(u->fp);
@@ -70,12 +73,13 @@ static int on_field_store(const char *path, long long size, void *user_data) {
 		u->fp = NULL;
 	}
 	print_info("[UPLOAD] Stored %s (%lld bytes)\n", path, size);
+
 	return 0;
 }
 
-int api_upload_handler(struct mg_connection *conn, void *cbdata) {
+int api_upload_handler(struct mg_connection* conn, void* cbdata) {
 	(void)cbdata;
-	const struct mg_request_info *ri = mg_get_request_info(conn);
+	const struct mg_request_info* ri = mg_get_request_info(conn);
 	if (strcmp(ri->request_method, "POST") != 0) {
 		http_send_error(conn, 405, "POST required");
 		return 1;

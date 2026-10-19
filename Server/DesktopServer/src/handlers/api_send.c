@@ -22,8 +22,8 @@ extern pthread_mutex_t mtx_fprint;
 /* Saves data to SAVE_DIR/<safe_name>.
  * type == "FILE" → base64-decode, otherwise writes as-is.
  * Returns 0 on success. */
-static int save_to_file(const char *type, const char *data,
-						const char *saveToPath, int *written_out) {
+static int save_to_file(const char* type, const char* data,
+						const char* saveToPath, int* written_out) {
 	char safe_name[MAX_FILENAME + 1];
 	sanitize_filename(safe_name, sizeof(safe_name), saveToPath);
 
@@ -39,7 +39,7 @@ static int save_to_file(const char *type, const char *data,
 	snprintf(full_path, sizeof(full_path), "%s/%s", SAVE_DIR, safe_name);
 
 	pthread_mutex_lock(&mtx_fprint);
-	FILE *f = fopen(full_path, "wb");
+	FILE* f = fopen(full_path, "wb");
 	if (!f) {
 		pthread_mutex_unlock(&mtx_fprint);
 		print_error("Cannot open %s\n", full_path);
@@ -49,7 +49,7 @@ static int save_to_file(const char *type, const char *data,
 	int written = 0;
 	if (strcmp(type, "FILE") == 0) {
 		size_t b64_len = strlen(data);
-		unsigned char *bin = malloc(b64_len);
+		unsigned char* bin = malloc(b64_len);
 		if (bin) {
 			int dec = base64_decode(data, bin, (int)b64_len);
 			if (dec > 0) { fwrite(bin, 1, dec, f); written = dec; }
@@ -63,27 +63,29 @@ static int save_to_file(const char *type, const char *data,
 	pthread_mutex_unlock(&mtx_fprint);
 
 	print_info("[%s] saved to %s (%d bytes)\n", type, full_path, written);
-	if (written_out) *written_out = written;
+	if (written_out)
+		*written_out = written;
+
 	return 0;
 }
 
-int api_send_handler(struct mg_connection *conn, void *cbdata) {
+int api_send_handler(struct mg_connection* conn, void* cbdata) {
 	(void)cbdata;
-	const struct mg_request_info *ri = mg_get_request_info(conn);
+	const struct mg_request_info* ri = mg_get_request_info(conn);
 	if (strcmp(ri->request_method, "POST") != 0) {
 		http_send_error(conn, 405, "POST required");
 		return 1;
 	}
 
 	long long cl = 0;
-	const char *cls = mg_get_header(conn, "Content-Length");
+	const char* cls = mg_get_header(conn, "Content-Length");
 	if (cls) cl = atoll(cls);
 	if (cl <= 0 || cl > MAX_MESSAGE_SIZE) {
 		http_send_error(conn, 400, "Invalid Content-Length");
 		return 1;
 	}
 
-	char *body = malloc((size_t)cl + 1);
+	char* body = malloc((size_t)cl + 1);
 	if (!body) { http_send_error(conn, 500, "Memory error"); return 1; }
 	int n = mg_read(conn, body, (size_t)cl);
 	if (n != cl) {
@@ -93,13 +95,13 @@ int api_send_handler(struct mg_connection *conn, void *cbdata) {
 	}
 	body[cl] = '\0';
 
-	cJSON *root = cJSON_Parse(body);
+	cJSON* root = cJSON_Parse(body);
 	free(body);
 	if (!root) { http_send_error(conn, 400, "JSON parse error"); return 1; }
 
-	cJSON *typeItem   = cJSON_GetObjectItem(root, "type");
-	cJSON *dataItem   = cJSON_GetObjectItem(root, "data");
-	cJSON *saveToPath = cJSON_GetObjectItem(root, "saveToPath");
+	cJSON* typeItem   = cJSON_GetObjectItem(root, "type");
+	cJSON* dataItem   = cJSON_GetObjectItem(root, "data");
+	cJSON* saveToPath = cJSON_GetObjectItem(root, "saveToPath");
 
 	if (!cJSON_IsString(typeItem) || !cJSON_IsString(dataItem)) {
 		cJSON_Delete(root);
@@ -107,8 +109,8 @@ int api_send_handler(struct mg_connection *conn, void *cbdata) {
 		return 1;
 	}
 
-	const char *type = typeItem->valuestring;
-	const char *data = dataItem->valuestring;
+	const char* type = typeItem->valuestring;
+	const char* data = dataItem->valuestring;
 	bool need_save = cJSON_IsString(saveToPath) && saveToPath->valuestring[0] != '\0';
 
 	if (!need_save) {

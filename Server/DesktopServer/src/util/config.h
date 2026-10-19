@@ -4,17 +4,16 @@
 
 /* ---------- Network------- */
 #define CONNECTION_PORT  5000
-#define TLS_PORT         5443
 static const char* CONNECTION_IP = "0.0.0.0";
 
 /* ---------- TLS ---------- */
-static const bool SSL_ENCRYPT        = false;
-static const char* PUBLIC_KEY_FILE   = "server.crt";
-static const char* PRIVATE_KEY_FILE  = "server.key";
+static const bool SSL_ENCRYPT		= true;
+static const char* PUBLIC_KEY_FILE	= "server.pem";
+static const char* PRIVATE_KEY_FILE	= "server.key";
 
 /* ---------- Limits ------- */
 #define MAX_MESSAGE_SIZE  0x6400000   /* 100 MB — body limit /api/send */
-#define MAX_UPLOAD_SIZE   0x64000000  /* 1 GB   — file limit           */
+#define MAX_UPLOAD_SIZE   0x64000000  /* 1 GB   — file limit		   */
 #define REQUEST_TIMEOUT_MS 30000
 
 /* ---------- Utils -------- */

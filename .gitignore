@@ -36,4 +36,4 @@ compile_commands.json
 #SSL keys
 server.crt
 server.key
-compile_commands.json
+server.pem

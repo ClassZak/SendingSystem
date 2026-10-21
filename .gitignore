@@ -1,4 +1,4 @@
-# android клиент
+# android client
 *.iml
 .gradle
 /local.properties
@@ -37,3 +37,7 @@ compile_commands.json
 server.crt
 server.key
 server.pem
+
+
+#Data base
+SendingSystem.db

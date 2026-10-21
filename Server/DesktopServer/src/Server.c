@@ -25,6 +25,7 @@
 #include "FileService/FileService.h"
 #include "handlers/api_send.h"
 #include "handlers/api_upload.h"
+#include "database/create_database.h"
 
 
 #include "civetweb.h"
@@ -169,8 +170,9 @@ static void* log_addresses_worker(void* arg) {
 
 
 int main(void) {
-	print_pwd();
 	install_signals();
+	print_pwd();
+	create_database();
 
 	mg_init_library(0);
 

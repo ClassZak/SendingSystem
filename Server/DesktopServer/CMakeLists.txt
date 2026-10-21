@@ -106,6 +106,8 @@ add_executable(
 	${CMAKE_SOURCE_DIR}/src/handlers/http_json.c
 	${CMAKE_SOURCE_DIR}/src/handlers/api_send.c
 	${CMAKE_SOURCE_DIR}/src/handlers/api_upload.c
+	${CMAKE_SOURCE_DIR}/src/database/create_database.c
+	${CMAKE_SOURCE_DIR}/src/database/model/connection.c
 )
 
 # Install dependecies

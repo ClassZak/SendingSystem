@@ -26,11 +26,15 @@
 #include <stdlib.h>
 #include <regex.h>
 #ifdef _WIN32
-    #include <direct.h>
-    #define get_pwd _getcwd
+#include <direct.h>
+#define get_pwd _getcwd
 #else
-    #include <unistd.h>
-    #define get_pwd getcwd
+#include <unistd.h>
+#include <errno.h>
+#define get_pwd getcwd
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <unistd.h>
 #endif
 
 
@@ -100,6 +104,8 @@ void sanitize_filename(char* dest, size_t dest_size, const char* src)
 }
 
 
+
+
 void print_pwd() {
 	char buffer[0x1000]; // 4096
 	if (get_pwd(buffer, sizeof(buffer))) {
@@ -107,5 +113,172 @@ void print_pwd() {
 	} else {
 		print_error("Error getting current directory\n");
 	}
+}
+
+
+
+
+bool file_exists(const char* filename) {
+	bool result = false;
+
+#ifndef _WIN32
+	return access(filename, 0) == 0;
+#else
+	return _access(filename, 0) == 0;
+#endif
+}
+
+
+
+
+char* read_file_full(const char* filename, long* data_size) {
+	if (!file_exists(filename)) {
+		int err;
+#ifndef _WIN32
+		err = errno;
+#else
+		err = GetLastError();
+#endif
+		print_error("Error read file \'%s\': code %d %s\n", filename, err, strerror(err));
+		return NULL;
+	}
+
+
+	FILE* file;
+	if ((file = fopen(filename, "r")) == 0) {
+		int err;
+#ifndef _WIN32
+		err = errno;
+#else
+		err = GetLastError();
+#endif
+		print_error("Error read database file (%d): %s\n", err, strerror(err));
+	}
+
+
+	if (fseek(file, 0, SEEK_END)) {
+		fclose(file);
+		return NULL;
+	}
+
+
+	*data_size = ftell(file);
+	fseek(file, 0, SEEK_SET);
+	
+	char* result = (char*)malloc((*data_size) + 1);
+	if (!result) {
+		print_error("Failed to allocate %d bytes\n", data_size);
+		return NULL;
+	}
+
+	fread(result, sizeof(char), *data_size, file);
+	fclose(file);
+
+	return result;
+}
+
+
+
+
+wchar_t* read_file_full_utf8(const char* filename, long* data_size) {
+	if (!file_exists(filename)) {
+		int err;
+#ifndef _WIN32
+		err = errno;
+#else
+		err = GetLastError();
+#endif
+		print_error("Error read file \'%s\': code %d %s\n", filename, err, strerror(err));
+		return NULL;
+	}
+
+
+	FILE* file;
+	if ((file = fopen(filename, "r")) == 0) {
+		int err;
+#ifndef _WIN32
+		err = errno;
+#else
+		err = GetLastError();
+#endif
+		print_error("Error read database file (%d): %s\n", err, strerror(err));
+	}
+
+
+	if (fseek(file, 0, SEEK_END)) {
+		fclose(file);
+		return NULL;
+	}
+
+	*data_size = ftell(file);
+	fseek(file, 0, SEEK_SET);
+	
+	wchar_t* result = (wchar_t*)malloc(((*data_size) + 1) * sizeof(wchar_t));
+	if (!result) {
+		print_error("Failed to allocate %d bytes\n", data_size);
+		return NULL;
+	}
+
+	fread(result, sizeof(wchar_t), *data_size, file);
+	fclose(file);
+
+	return result;
+}
+
+
+
+
+int touch_file(const char *filename) {
+#ifdef _WIN32
+	// --- Windows Implementation (Win32 API) ---
+	HANDLE hFile = CreateFileA(
+		filename,
+		FILE_WRITE_ATTRIBUTES, 
+		FILE_SHARE_READ | FILE_SHARE_WRITE,
+		NULL,
+		OPEN_ALWAYS, // Creates if missing, opens if existing
+		FILE_ATTRIBUTE_NORMAL,
+		NULL
+	);
+
+	if (hFile == INVALID_HANDLE_VALUE) {
+		print_error("[Windows Error] Cannot open/create file. Code: %lu\n", GetLastError());
+		return -1;
+	}
+
+	// Get current system time and map to FILETIME structure
+	SYSTEMTIME now_sys;
+	FILETIME now_file;
+	GetSystemTime(&now_sys);
+	SystemTimeToFileTime(&now_sys, &now_file);
+
+	// Apply to Last Access and Last Write parameters
+	if (!SetFileTime(hFile, NULL, &now_file, &now_file)) {
+		fprintf("[Windows Error] Cannot update timestamp. Code: %lu\n", GetLastError());
+		CloseHandle(hFile);
+		return -1;
+	}
+
+	CloseHandle(hFile);
+	return 0;
+
+#else
+	// --- Linux / POSIX Implementation (Standard C + modern POSIX) ---
+	// Open in append mode to create safely without destroying existing file text
+	FILE *file = fopen(filename, "a");
+	if (file == NULL) {
+		print_error("[Linux Error] File access failed\n");
+		return -1;
+	}
+	fclose(file);
+
+	// Update Access and Modification flags to present time (Passing NULL forces current time)
+	if (utimensat(AT_FDCWD, filename, NULL, 0) < 0) {
+		print_error("[Linux Error] Timestamp update failed\n");
+		return -1;
+	}
+
+	return 0;
+#endif
 }
 

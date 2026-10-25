@@ -20,3 +20,4 @@
 #pragma once
 static const char* DATABASE_FILENAME = "SendingSystem.db";
 static const char* CREATE_DATABASE_FILE = "CreateDatabase.sql";
+#define DB_ID long

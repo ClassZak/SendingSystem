@@ -88,9 +88,25 @@ static int save_to_file(const char* type, const char* data,
 	return 0;
 }
 
+
+
+
+/*
+ * Handle /api/send request
+ * what receives text client data
+ *
+ * @param conn civetweb connection
+ * @param cbdata received data
+ *
+ * POST method
+ *
+ * JSON body:
+ *	<type> ::= string <RAW_DATA|FILE>
+ *	<data> ::= string
+ */
 int api_send_handler(struct mg_connection* conn, void* cbdata) {
-	(void)cbdata;
 	const struct mg_request_info* ri = mg_get_request_info(conn);
+
 	if (strcmp(ri->request_method, "POST") != 0) {
 		http_send_error(conn, 405, "POST required");
 		return 1;
@@ -102,7 +118,7 @@ int api_send_handler(struct mg_connection* conn, void* cbdata) {
 	if (cl <= 0 || cl > MAX_MESSAGE_SIZE) {
 		http_send_error(conn, 400, "Invalid Content-Length");
 		return 1;
-	}
+	}	
 
 	char* body = malloc((size_t)cl + 1);
 	if (!body) { http_send_error(conn, 500, "Memory error"); return 1; }
@@ -116,7 +132,10 @@ int api_send_handler(struct mg_connection* conn, void* cbdata) {
 
 	cJSON* root = cJSON_Parse(body);
 	free(body);
-	if (!root) { http_send_error(conn, 400, "JSON parse error"); return 1; }
+	if (!root) {
+		http_send_error(conn, 400, "JSON parse error");
+		return 1;
+	}
 
 	cJSON* typeItem   = cJSON_GetObjectItem(root, "type");
 	cJSON* dataItem   = cJSON_GetObjectItem(root, "data");

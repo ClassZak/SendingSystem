@@ -18,19 +18,11 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 #pragma once
-#include <stdbool.h>
-#include <stdint.h>
+#include "model/database_models.h"
+#include <sqlite3.h>
 
-
-
-
-struct Connection {
-	uint32_t ip_size;
-	uint32_t id;
-	uint16_t port;
-	bool is_SSL_encrypted;
-	char* ip;
-};
-
-
-struct Connection* get_connections_from_data_base(uint32_t* count);
+int					named_connection_insert(sqlite3* db, const char* name, DB_ID connection_id, DB_ID* out_id);
+NamedConnection*	named_connection_get(sqlite3* db, DB_ID id);
+NamedConnection*	named_connection_get_all(sqlite3* db, int* out_count);
+int					named_connection_update(sqlite3* db, DB_ID id, const char* name, DB_ID connection_id);
+int					named_connection_delete(sqlite3* db, DB_ID id);

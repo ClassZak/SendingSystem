@@ -17,34 +17,11 @@
  *
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
-#include "connection.h"
-#include "../../PrintProcedures/PrintProcedures.h"
-#include "../database_config.h"
+#pragma once
+
 #include <sqlite3.h>
-#include <stdlib.h>
 
 
-struct Connection* get_connections_from_data_base(uint32_t* count) {
-	struct Connection* connections = NULL;
-	uint32_t connections_count = 0UL;
-
-	sqlite3* db;
-	char* err_msg = 0;
-	int res;
-
-
-	if (sqlite3_open(DATABASE_FILENAME, &db)) {
-		print_error("Failed to open data base: %s\n", sqlite3_errmsg(db));
-
-		return NULL;
-	}
-
-	
-
-	
-	sqlite3_close(db);
-
-
-	return connections;
-}
-
+int create_database();
+int database_open(const char* filename, sqlite3** out_db);
+void database_close(sqlite3* db);

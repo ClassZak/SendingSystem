@@ -3,6 +3,7 @@ package com.example.sendingsystemclient.data.model;
 import androidx.room.Entity;
 import androidx.room.PrimaryKey;
 
+/** Connection endpoint: IP, port, TLS flag. Mapped to Connection table. */
 @Entity(tableName = "Connection")
 public class Connection {
     @PrimaryKey(autoGenerate = true)

@@ -14,6 +14,10 @@ import com.example.sendingsystemclient.data.repository.NamedConnectionRepository
 import com.example.sendingsystemclient.data.repository.NamedConnectionRepositoryDaoImpl;
 import com.example.sendingsystemclient.data.source.AppDatabase;
 
+/**
+ * Application entry point: instantiates every repository once so
+ * activities can fetch them through getApplication().
+ */
 public class App extends Application {
     private MessageStatusRepository messageStatusRepository;
     private MessageTypeRepository messageTypeRepository;
@@ -21,22 +25,40 @@ public class App extends Application {
     private NamedConnectionRepository namedConnectionRepository;
     private MessageRepository messageRepository;
 
+    /**
+     * @return (MessageStatusRepository) — shared instance.
+     */
     public MessageStatusRepository getMessageStatusRepository() {
         return messageStatusRepository;
     }
+
+    /**
+     * @return (MessageTypeRepository) — shared instance.
+     */
     public MessageTypeRepository getMessageTypeRepository() {
         return messageTypeRepository;
     }
+
+    /**
+     * @return (ConnectionRepository) — shared instance.
+     */
     public ConnectionRepository getConnectionRepository() {
         return connectionRepository;
     }
+
+    /**
+     * @return (NamedConnectionRepository) — shared instance.
+     */
     public NamedConnectionRepository getNamedConnectionRepository() {
         return namedConnectionRepository;
     }
+
+    /**
+     * @return (MessageRepository) — shared instance.
+     */
     public MessageRepository getMessageRepository() {
         return messageRepository;
     }
-
 
     @Override
     public void onCreate(){

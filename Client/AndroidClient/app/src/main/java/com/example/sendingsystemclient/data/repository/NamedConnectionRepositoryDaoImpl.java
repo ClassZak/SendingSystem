@@ -6,6 +6,7 @@ import com.example.sendingsystemclient.data.source.NamedConnectionDao;
 import java.util.Collections;
 import java.util.List;
 
+/** Repository implementation backed by a Room DAO. */
 public class NamedConnectionRepositoryDaoImpl implements NamedConnectionRepository {
     private final NamedConnectionDao dao;
     public NamedConnectionRepositoryDaoImpl(NamedConnectionDao dao) {

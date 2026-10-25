@@ -32,25 +32,23 @@ import com.example.sendingsystemclient.domain.model.ServerResponse;
 import com.example.sendingsystemclient.domain.viewmodel.SendDataViewModel;
 
 /**
- * @brief Main UI: compose a message or pick a file and send it.
+ * Main screen: compose a text message or pick a file and send it to the
+ * configured server.
  *
- * @details
- * Lifecycle highlights:
- * <ul>
- *   <li>On create, restores the last successful connection.</li>
- *   <li>Handles {@code ACTION_SEND} intents both on create and on new
- *       intent (so the activity can be re-used as a share target).</li>
- *   <li>Delegates all networking to {@link SendDataViewModel} on a
- *       dedicated worker thread.</li>
- * </ul>
+ * Lifecycle:
+ *   - onCreate restores the last successful connection and handles any
+ *     ACTION_SEND intent that launched the activity.
+ *   - onNewIntent handles a second share while already open.
+ *   - All network work runs on a dedicated worker thread; UI updates go
+ *     through runOnUiThread.
  *
- * @note  File selection stores a {@link Uri}, not the raw bytes, so
- *        memory usage is independent of the file size. The streaming
- *        upload is performed inside {@link Connector}.
+ * File selection stores a Uri, not the raw bytes, so memory usage does
+ * not depend on file size. The streaming upload happens inside
+ * Connector.
  */
 public class MainActivity extends AppCompatActivity {
 
-    /** @brief Request code for {@link #onActivityResult} file picker. */
+    /** Request code for the ACTION_OPEN_DOCUMENT file picker. */
     private static final int REQUEST_CODE_PICK_FILE = 1001;
 
     private EditText     editTextServerIP;
@@ -70,9 +68,9 @@ public class MainActivity extends AppCompatActivity {
     private App               app;
     private SendDataViewModel sendDataViewModel;
 
-    /** @brief Currently selected file, kept as a streamable URI. */
+    /** Currently selected file; streamed on send, never loaded whole. */
     @Nullable private Uri    fileUri  = null;
-    /** @brief Display name of the selected file. */
+    /** Display name of the selected file. */
     @Nullable private String fileName = null;
 
     @Override
@@ -109,8 +107,9 @@ public class MainActivity extends AppCompatActivity {
     }
 
     /**
-     * @brief Handles a second {@code ACTION_SEND} while already open.
-     * @see #handleIncomingIntent(Intent)
+     * Handles a second ACTION_SEND while the activity is already open.
+     *
+     * @param intent (Intent, Required) — new intent from the framework.
      */
     @Override
     protected void onNewIntent(Intent intent) {
@@ -122,9 +121,9 @@ public class MainActivity extends AppCompatActivity {
     // ===== Incoming share intent =====
 
     /**
-     * @brief Dispatches an incoming share intent to the right handler.
+     * Dispatches an incoming share intent to the right handler.
      *
-     * @param intent May be {@code null}.
+     * @param intent (Intent, Optional) — may be null; null is a no-op.
      */
     private void handleIncomingIntent(Intent intent) {
         if (intent == null) return;
@@ -134,11 +133,13 @@ public class MainActivity extends AppCompatActivity {
     }
 
     /**
-     * @brief Fills the UI from an {@code ACTION_SEND} intent.
+     * Fills the UI from an ACTION_SEND intent.
      *
-     * @details For {@code text/*} populates the text field; for any other
-     * MIME type treats the payload as a file URI and selects it.
-     * Extend the MIME branch here if you add more content types.
+     * For text/* populates the text field. For any other MIME type
+     * treats the payload as a file URI and selects it. Extend the MIME
+     * branch here if you add more content types.
+     *
+     * @param intent (Intent, Required) — intent with a non-null type.
      */
     private void handleSendIntent(Intent intent) {
         String type = intent.getType();
@@ -159,8 +160,9 @@ public class MainActivity extends AppCompatActivity {
     // ===== File selection =====
 
     /**
-     * @brief Records the selected URI and switches the UI to file mode.
-     * @param uri File source; will be streamed on send.
+     * Records the selected URI and switches the UI to file mode.
+     *
+     * @param uri (Uri, Required) — file source; streamed on send.
      */
     private void selectFile(Uri uri) {
         fileName = queryDisplayName(uri);
@@ -171,8 +173,10 @@ public class MainActivity extends AppCompatActivity {
     }
 
     /**
-     * @brief Best-effort lookup of {@link OpenableColumns#DISPLAY_NAME}.
-     * @return Display name, or {@code null} if unavailable.
+     * Best-effort lookup of OpenableColumns.DISPLAY_NAME.
+     *
+     * @param uri (Uri, Required) — content URI to query.
+     * @return (String) — display name, or null if unavailable.
      */
     @Nullable
     private String queryDisplayName(Uri uri) {
@@ -187,8 +191,11 @@ public class MainActivity extends AppCompatActivity {
     }
 
     /**
-     * @brief Receives the result of the {@code ACTION_OPEN_DOCUMENT} picker.
-     * @see #REQUEST_CODE_PICK_FILE
+     * Receives the result of the ACTION_OPEN_DOCUMENT picker.
+     *
+     * @param requestCode (int, Required) — code passed to startActivityForResult.
+     * @param resultCode  (int, Required) — RESULT_OK on success.
+     * @param data        (Intent, Optional) — result intent; null on cancel.
      */
     @Override
     protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
@@ -208,9 +215,10 @@ public class MainActivity extends AppCompatActivity {
     // ===== Last successful connection =====
 
     /**
-     * @brief Pre-fills IP / port / TLS from the most recent successful send.
-     * @details Runs on a worker thread; UI is updated via
-     *          {@link #runOnUiThread(Runnable)}.
+     * Pre-fills IP, port and TLS flag from the most recent successful
+     * send.
+     *
+     * Runs on a worker thread; UI is updated via runOnUiThread.
      */
     private void setLastSuccessfulConnection() {
         new Thread(() -> {
@@ -229,7 +237,7 @@ public class MainActivity extends AppCompatActivity {
     // ===== Listeners =====
 
     /**
-     * @brief Wires all UI callbacks.
+     * Wires all UI callbacks.
      */
     private void setUpListeners() {
         checkBoxIPv4.setOnCheckedChangeListener((v, c) -> { if (c) checkBoxIPv6.setChecked(false); });
@@ -255,13 +263,12 @@ public class MainActivity extends AppCompatActivity {
     // ===== Send flow =====
 
     /**
-     * @brief Validates the form, builds a {@link SendDataViewModel.Config},
-     *        and dispatches the send on a worker thread.
+     * Validates the form, builds a SendDataViewModel.Config, and
+     * dispatches send on a worker thread.
      *
-     * @details UI updates from the worker use {@link #runOnUiThread(Runnable)}.
-     *          Progress reporting is available but intentionally not wired
-     *          to any widget yet — the listener can be added later without
-     *          touching the transport.
+     * UI updates from the worker use runOnUiThread. Progress reporting
+     * is available but intentionally not wired to any widget yet — the
+     * listener can be added later without touching the transport.
      */
     private void onSendClicked() {
         final IPVersion ipVersion = checkBoxIPv4.isChecked() ? IPVersion.IPv4 : IPVersion.IPv6;

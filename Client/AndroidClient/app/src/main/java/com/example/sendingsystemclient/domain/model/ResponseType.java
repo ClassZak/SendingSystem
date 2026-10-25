@@ -1,5 +1,6 @@
 package com.example.sendingsystemclient.domain.model;
 
+/** Server response kinds: "error" or "message". */
 public enum ResponseType {
     Error (1),
     Message (2);

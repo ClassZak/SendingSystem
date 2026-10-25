@@ -8,6 +8,7 @@ import com.example.sendingsystemclient.data.model.NamedConnection;
 
 import java.util.List;
 
+/** Room DAO for the NamedConnection table. */
 @Dao
 public interface NamedConnectionDao {
     @Insert
@@ -22,10 +23,10 @@ public interface NamedConnectionDao {
     NamedConnection getById(int id);
 
     /**
-     * Search every query entry from table
-     * Necessary to escape argument
-     * @param query Search query
-     * @return List of found rows
+     * Case-insensitive substring search over the name column.
+     *
+     * @param query (String, Required) — substring to search for.
+     * @return (List<NamedConnection>) — matching rows, possibly empty.
      */
     @Query("SELECT * FROM NamedConnection WHERE LOWER(name) LIKE '%' || LOWER(:query) || '%' ESCAPE '\\'")
     List<NamedConnection> searchNamedConnection(String query);

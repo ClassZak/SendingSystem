@@ -3,6 +3,7 @@ package com.example.sendingsystemclient.data.model;
 import androidx.room.Entity;
 import androidx.room.PrimaryKey;
 
+/** Reference table for message statuses (SUCCESS, FAILED). */
 @Entity(tableName = "MessageStatus")
 public class MessageStatus {
     @PrimaryKey(autoGenerate = true)

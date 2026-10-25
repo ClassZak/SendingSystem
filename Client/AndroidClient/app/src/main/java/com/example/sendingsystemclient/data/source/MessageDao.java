@@ -8,6 +8,7 @@ import com.example.sendingsystemclient.data.model.Message;
 
 import java.util.List;
 
+/** Room DAO for the Message table. */
 @Dao
 public interface MessageDao {
     @Insert

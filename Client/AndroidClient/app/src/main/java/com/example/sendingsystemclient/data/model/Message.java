@@ -4,6 +4,7 @@ import androidx.room.Entity;
 import androidx.room.ForeignKey;
 import androidx.room.PrimaryKey;
 
+/** One send attempt: request, response, timing, status and type references. */
 @Entity(
         tableName = "Message",
         foreignKeys = {

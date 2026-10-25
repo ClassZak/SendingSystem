@@ -6,6 +6,7 @@ import com.example.sendingsystemclient.data.source.ConnectionDao;
 import java.util.Collections;
 import java.util.List;
 
+/** Repository implementation backed by a Room DAO. */
 public class ConnectionRepositoryDaoImpl implements ConnectionRepository {
     private final ConnectionDao dao;
     public ConnectionRepositoryDaoImpl(ConnectionDao dao) {

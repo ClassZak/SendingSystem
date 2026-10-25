@@ -5,6 +5,7 @@ import androidx.room.ForeignKey;
 import androidx.room.Index;
 import androidx.room.PrimaryKey;
 
+/** User-visible label for a Connection row. */
 @Entity(
         tableName = "NamedConnection",
         foreignKeys = @ForeignKey(

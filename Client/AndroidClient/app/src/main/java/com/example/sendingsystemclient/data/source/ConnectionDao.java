@@ -8,6 +8,7 @@ import com.example.sendingsystemclient.data.model.Connection;
 
 import java.util.List;
 
+/** Room DAO for the Connection table. */
 @Dao
 public interface ConnectionDao {
     @Insert

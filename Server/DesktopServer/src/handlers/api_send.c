@@ -162,7 +162,7 @@ int api_send_handler(struct mg_connection* conn, void* cbdata) {
 		return 1;
 	}
 
-	int n = (unsigned int)mg_read(conn, body, (size_t)content_length);
+	long long n = mg_read(conn, body, (size_t)content_length);
 	if (n != content_length) {
 		free(body);
 		http_send_error(conn, 400, "Incomplete body");

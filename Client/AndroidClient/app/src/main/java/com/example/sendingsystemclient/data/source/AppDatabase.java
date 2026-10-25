@@ -18,6 +18,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.Executors;
 
+/** Room database: five tables matching the C server schema. */
 @Database(entities = {
         MessageType.class,
         MessageStatus.class,

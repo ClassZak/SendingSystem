@@ -18,8 +18,7 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 /**
- * @file    get_public_ip_http.c
- * @brief   Public IP discovery via an external HTTPS service.
+ * Public IP discovery via an external HTTPS service.
  *
  * ── How it works ──────────────────────────────────────────────────────
  *
@@ -116,3 +115,4 @@ char* get_public_ip_http(void) {
 
 	return buffer;
 }
+

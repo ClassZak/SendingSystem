@@ -17,13 +17,35 @@
  *
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
+/**
+ * JSON response helpers shared by all HTTP handlers.
+ */
 #pragma once
+
 #include <civetweb.h>
 
-/* Sends {"type": ..., "data": ...} and closes the connection.
- * status: 200, 400, 405, 500, etc. */
-void http_send_json(struct mg_connection* conn, int status,
-					const char* type, const char* data);
 
-/* Shortcut: 4xx/5xx with text in the "data" field */
+
+
+/**
+ * Sends `{"type": <type>, "data": <data>}` and closes the connection.
+ *
+ * @param conn   (struct mg_connection*, Required) — CivetWeb connection.
+ * @param status (int, Required) — HTTP status code (200, 400, 405, 500…).
+ * @param type   (const char*, Required) — value for the "type" field.
+ * @param data   (const char*, Required) — value for the "data" field.
+ */
+void http_send_json(struct mg_connection* conn, int status,
+                    const char* type, const char* data);
+
+
+
+
+/**
+ * Sends `{"type":"error","data":<msg>}` with the given HTTP status.
+ *
+ * @param conn   (struct mg_connection*, Required) — CivetWeb connection.
+ * @param status (int, Required) — HTTP status code (4xx or 5xx).
+ * @param msg    (const char*, Required) — error description.
+ */
 void http_send_error(struct mg_connection* conn, int status, const char* msg);

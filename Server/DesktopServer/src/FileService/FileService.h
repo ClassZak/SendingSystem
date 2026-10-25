@@ -17,36 +17,76 @@
  *
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
+/**
+ * File system helpers — see FileService.c.
+ *
+ * Path limits live in util/config.h; this header only pulls them in.
+ */
 #pragma once
-#define SAVE_DIR "build/saves"
-#define MAX_FILENAME 255
-#define SAVE_DIR_LENGTH 11
+
+#include "../util/config.h"
 
 
 #include <stddef.h>
 #include <stdbool.h>
 #ifdef _WIN32
-#include <direct.h>   // _mkdir
-#include <io.h>		  // _access
+#include <direct.h>
+#include <io.h>
 #else
-#include <sys/stat.h> // mkdir
-#include <unistd.h>   // access
+#include <sys/stat.h>
+#include <unistd.h>
 #endif
 
 
 
 
-#if defined(_WIN32) || defined(_WIN64)
-    #include <windows.h>
-#else
-    #include <sys/stat.h>
-    #include <fcntl.h>
-    #include <unistd.h>
-#endif
-
+/**
+ * Sanitises a user-supplied filename to [A-Za-z0-9._-] only.
+ *
+ * @param dest      (char*, Required) — output buffer.
+ * @param dest_size (size_t, Required) — capacity of dest.
+ * @param src       (const char*, Optional) — source name.
+ */
 void sanitize_filename(char* dest, size_t dest_size, const char* src);
-void print_pwd();
+
+
+
+
+/**
+ * Logs the current working directory.
+ */
+void print_pwd(void);
+
+
+
+
+/**
+ * Checks whether a file exists at the given path.
+ *
+ * @param filename (const char*, Required) — path to test.
+ * @return (bool) — true if the path exists.
+ */
 bool file_exists(const char* filename);
+
+
+
+
+/**
+ * Reads an entire file into a heap buffer (NUL-terminated).
+ *
+ * @param filename  (const char*, Required) — file path.
+ * @param data_size (long*, Required) — receives the byte count.
+ * @return (char*) — heap buffer, or NULL on error. Caller frees.
+ */
 char* read_file_full(const char* filename, long* data_size);
-wchar_t* read_file_full_utf8(const char* filename, long* data_size);
-int touch_file(const char *filename);
+
+
+
+
+/**
+ * Creates an empty file or refreshes its timestamps.
+ *
+ * @param filename (const char*, Required) — file path.
+ * @return (int) — 0 on success; -1 on error.
+ */
+int touch_file(const char* filename);

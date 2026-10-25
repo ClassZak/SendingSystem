@@ -17,6 +17,13 @@
  *
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
+/**
+ * C structs mirroring the Android Room entities.
+ *
+ * Field names are snake_case in C; SQL columns stay camelCase to match
+ * Room. Every heap-owned string must be released with the matching
+ * *_free / *_free_all function.
+ */
 #pragma once
 
 #include "../database_config.h"
@@ -24,26 +31,30 @@
 
 
 
-/* Field names are snake_case in C, columns stay camelCase in SQL.
- * Every string is heap-owned: call *_free() / *_free_all(). */
 typedef struct {
 	DB_ID id;
-	char* name;
+	char* name;   /**< owned; may be NULL */
 } MessageType;
 
 
+
+
 typedef struct {
 	DB_ID id;
-	char* name;
+	char* name;   /**< owned; may be NULL */
 } MessageStatus;
 
 
+
+
 typedef struct {
 	DB_ID id;
-	char* ip;
+	char* ip;                /**< owned; may be NULL */
 	int   port;
-	int   is_ssl_encrypted;
+	int   is_ssl_encrypted;  /**< 0 or 1 */
 } Connection;
+
+
 
 
 typedef struct {
@@ -51,36 +62,121 @@ typedef struct {
 	DB_ID connection_id;
 	DB_ID message_status_id;
 	DB_ID message_type_id;
-	char* response;
-	char* sending_time;
-	char* request;
+	char* response;      /**< owned; may be NULL */
+	char* sending_time;  /**< owned; may be NULL */
+	char* request;       /**< owned; may be NULL */
 } Message;
+
+
 
 
 typedef struct {
 	DB_ID id;
-	char* name;
+	char* name;          /**< owned; may be NULL */
 	DB_ID connection_id;
 } NamedConnection;
 
 
 
 
+/**
+ * Releases the heap strings inside a MessageType.
+ *
+ * @param t (MessageType*, Optional) — NULL is safe.
+ */
 void message_type_free(MessageType* t);
+
+
+
+
+/**
+ * Frees an array returned by message_type_get_all.
+ *
+ * @param arr (MessageType*, Optional) — NULL is safe.
+ * @param n   (int, Required) — number of elements.
+ */
 void message_type_free_all(MessageType* arr, int n);
 
 
+
+
+/**
+ * Releases the heap strings inside a MessageStatus.
+ *
+ * @param s (MessageStatus*, Optional) — NULL is safe.
+ */
 void message_status_free(MessageStatus* s);
+
+
+
+
+/**
+ * Frees an array returned by message_status_get_all.
+ *
+ * @param arr (MessageStatus*, Optional) — NULL is safe.
+ * @param n   (int, Required) — number of elements.
+ */
 void message_status_free_all(MessageStatus* arr, int n);
 
 
+
+
+/**
+ * Releases the heap strings inside a Connection.
+ *
+ * @param c (Connection*, Optional) — NULL is safe.
+ */
 void connection_free(Connection* c);
+
+
+
+
+/**
+ * Frees an array returned by connection_get_all.
+ *
+ * @param arr (Connection*, Optional) — NULL is safe.
+ * @param n   (int, Required) — number of elements.
+ */
 void connection_free_all(Connection* arr, int n);
 
 
+
+
+/**
+ * Releases the heap strings inside a Message.
+ *
+ * @param m (Message*, Optional) — NULL is safe.
+ */
 void message_free(Message* m);
+
+
+
+
+/**
+ * Frees an array returned by message_get_all.
+ *
+ * @param arr (Message*, Optional) — NULL is safe.
+ * @param n   (int, Required) — number of elements.
+ */
 void message_free_all(Message* arr, int n);
 
 
+
+
+/**
+ * Releases the heap strings inside a NamedConnection.
+ *
+ * @param nc (NamedConnection*, Optional) — NULL is safe.
+ */
 void named_connection_free(NamedConnection* nc);
+
+
+
+
+/**
+ * Frees an array returned by named_connection_get_all.
+ *
+ * @param arr (NamedConnection*, Optional) — NULL is safe.
+ * @param n   (int, Required) — number of elements.
+ */
 void named_connection_free_all(NamedConnection* arr, int n);

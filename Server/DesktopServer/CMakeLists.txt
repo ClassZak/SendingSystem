@@ -87,22 +87,10 @@ add_executable(
 	${CMAKE_SOURCE_DIR}/src/PrintProcedures/PrintProcedures.c
 	${CMAKE_SOURCE_DIR}/src/FileService/FileService.h
 	${CMAKE_SOURCE_DIR}/src/FileService/FileService.c
-	${CMAKE_SOURCE_DIR}/src/Base64/Base64.h
-	${CMAKE_SOURCE_DIR}/src/Base64/Base64.c
-	${CMAKE_SOURCE_DIR}/src/OpenSSL/OpenSSL.h
-	${CMAKE_SOURCE_DIR}/src/OpenSSL/OpenSSL.c
-	${CMAKE_SOURCE_DIR}/src/Connection/connection.h
-	${CMAKE_SOURCE_DIR}/src/Connection/connection_socket.h
-	${CMAKE_SOURCE_DIR}/src/Connection/connection_socket.c
-	${CMAKE_SOURCE_DIR}/src/Connection/connection_SSL.h
-	${CMAKE_SOURCE_DIR}/src/Connection/connection_SSL.c
 	${CMAKE_SOURCE_DIR}/src/util/config.h
 	${CMAKE_SOURCE_DIR}/src/util/get_server_ip_addresses.c
 	${CMAKE_SOURCE_DIR}/src/util/get_public_ip_http.c
 	${CMAKE_SOURCE_DIR}/src/util/get_public_ip_upnp.c
-	${CMAKE_SOURCE_DIR}/src/util/receive_message_length.c
-	${CMAKE_SOURCE_DIR}/src/util/set_socket_timeout.c
-	${CMAKE_SOURCE_DIR}/src/util/setup_socket.c
 	${CMAKE_SOURCE_DIR}/src/handlers/http_json.c
 	${CMAKE_SOURCE_DIR}/src/handlers/api_send.c
 	${CMAKE_SOURCE_DIR}/src/handlers/api_upload.c
@@ -116,7 +104,7 @@ add_executable(
 )
 
 # Install dependecies
-target_link_libraries(SendingSystem 
+target_link_libraries(SendingSystem
 	PRIVATE
 	cjson
 	civetweb-c-library

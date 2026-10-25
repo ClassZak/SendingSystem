@@ -17,16 +17,13 @@
  *
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
-
 /**
- * @file config.h
- * @brief Compile-time configuration for the Sending System server.
+ * Compile-time configuration for the Sending System server.
  *
  * All tunables live here. Variables are `static const` so each
- * translation unit gets its own private copy — this avoids the classic
- * "multiple definition" link error and keeps the file header-only.
+ * translation unit gets its own private copy — this avoids the
+ * classic "multiple definition" link error.
  */
-
 #pragma once
 
 #include <stdbool.h>
@@ -35,47 +32,49 @@
 
 
 /* ---------- Network ---------- */
-
-/** @brief Listening port for HTTP and (optionally) HTTPS. */
+/** Listening port for HTTP and (optionally) HTTPS. */
 #define CONNECTION_PORT  5000
-
-/** @brief Bind address; "0.0.0.0" accepts connections on all interfaces. */
+/** Bind address; "0.0.0.0" accepts connections on all interfaces. */
 static const char* CONNECTION_IP = "0.0.0.0";
 
 
 
 
 /* ---------- TLS ---------- */
-
-/** @brief When true, CivetWeb opens the port in TLS mode. */
+/** When true, CivetWeb opens the port in TLS mode. */
 static const bool  SSL_ENCRYPT       = true;
-
-/** @brief Path to the PEM file containing both certificate and key. */
+/** PEM file with both certificate and key. */
 static const char* PUBLIC_KEY_FILE   = "server.pem";
-
-/** @brief Legacy; not read by CivetWeb (key is inside PUBLIC_KEY_FILE). */
+/** Legacy; not read by CivetWeb (key is inside PUBLIC_KEY_FILE). */
 static const char* PRIVATE_KEY_FILE  = "server.key";
 
 
 
 
 /* ---------- Limits ---------- */
-
-/** @brief Maximum body size for POST /api/send (100 MB). */
+/** Maximum body size for POST /api/send (100 MB). */
 #define MAX_MESSAGE_SIZE   0x6400000
-
-/** @brief Per-file soft limit for POST /api/upload (1 GB). */
+/** Per-file soft limit for POST /api/upload (1 GB). */
 #define MAX_UPLOAD_SIZE    0x64000000
-
-/** @brief Idle-request timeout passed to CivetWeb. */
+/** Idle-request timeout passed to CivetWeb. */
 #define REQUEST_TIMEOUT_MS 30000
 
 
 
 
-/* ---------- Messages ---------- */
+/* ---------- Files ---------- */
+/** Root directory for received files. */
+#define SAVE_DIR        "build/saves"
+/** Maximum filename length in bytes. */
+#define MAX_FILENAME    255
+/** String length of SAVE_DIR (for fixed-size path buffers). */
+#define SAVE_DIR_LENGTH 11
 
-/** @brief Emitted when signal handlers cannot be installed. */
+
+
+
+/* ---------- Messages ---------- */
+/** Emitted when signal handlers cannot be installed. */
 #define FAILED_SIGNAL_HANDLERS_MESSAGE "Failed to set up signal handlers\n"
 
 
@@ -84,4 +83,33 @@ static const char* PRIVATE_KEY_FILE  = "server.key";
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#ifdef _WIN32
+#include <WinSock2.h>
+#include <WS2tcpip.h>
+#include <iphlpapi.h>
+#include <Windows.h>
+#else
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <unistd.h>
+#include <netdb.h>
+#include <errno.h>
+#include <sys/select.h>
+#include <fcntl.h>
+#include <pthread.h>
+#include <signal.h>
+#endif
 
+
+
+
+
+
+
+#ifndef _WIN32
+typedef int SOCKET;
+#define closesocket(s) close(s)
+#define INVALID_SOCKET (-1)
+#define SOCKET_ERROR   (-1)
+#endif

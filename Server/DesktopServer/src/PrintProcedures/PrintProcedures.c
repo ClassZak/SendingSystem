@@ -17,12 +17,30 @@
  *
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
+/**
+ * Coloured console output — implementation.
+ *
+ * This is the only module permitted to call printf/fprintf directly;
+ * everything else goes through print_error/print_success/print_info.
+ */
+
 #include "PrintProcedures.h"
+
+
 #ifndef _WIN32
 #include <errno.h>
 #include <string.h>
 #endif
 
+
+
+
+/**
+ * Prints an error message to stderr in red.
+ *
+ * @param format (const char*, Required) — printf-style format string.
+ * @param ...    (varargs, Required)    — format arguments.
+ */
 void print_error(const char* format, ...)
 {
 #ifdef _WIN32
@@ -54,6 +72,15 @@ void print_error(const char* format, ...)
 #endif
 }
 
+
+
+
+/**
+ * Prints a success message to stdout in green.
+ *
+ * @param format (const char*, Required) — printf-style format string.
+ * @param ...    (varargs, Required)    — format arguments.
+ */
 void print_success(const char* format, ...)
 {
 #ifdef _WIN32
@@ -78,6 +105,15 @@ void print_success(const char* format, ...)
 #endif
 }
 
+
+
+
+/**
+ * Prints an informational message to stdout in yellow.
+ *
+ * @param format (const char*, Required) — printf-style format string.
+ * @param ...    (varargs, Required)    — format arguments.
+ */
 void print_info(const char* format, ...)
 {
 #ifdef _WIN32
@@ -101,3 +137,4 @@ void print_info(const char* format, ...)
 	SetConsoleTextAttribute(console_handle, RESET_COLOR);
 #endif
 }
+

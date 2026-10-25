@@ -17,10 +17,25 @@
  *
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
+/**
+ * POST /api/send — text message endpoint.
+ *
+ * Accepts JSON `{"data":"...", "saveToPath":"..."}`. Full spec is in
+ * the function definition in api_send.c. For binary uploads use
+ * POST /api/upload.
+ */
 #pragma once
+
 #include <civetweb.h>
 
 
 
 
+/**
+ * Handles POST /api/send.
+ *
+ * @param conn   (struct mg_connection*, Required) — CivetWeb connection.
+ * @param cbdata (void*, Optional) — unused.
+ * @return (int) — always 1.
+ */
 int api_send_handler(struct mg_connection* conn, void* cbdata);

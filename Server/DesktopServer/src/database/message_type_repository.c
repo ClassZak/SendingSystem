@@ -17,6 +17,10 @@
  *
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
+/**
+ * CRUD implementation for the MessageType table.
+ */
+
 #include "message_type_repository.h"
 #include "model/db_helpers.h"
 #include <stdlib.h>
@@ -25,7 +29,7 @@
 
 
 static const char* k_insert = "INSERT INTO MessageType(name) VALUES(?)";
-static const char* k_get	= "SELECT id, name FROM MessageType WHERE id=?";
+static const char* k_get    = "SELECT id, name FROM MessageType WHERE id=?";
 static const char* k_getall = "SELECT id, name FROM MessageType ORDER BY id";
 static const char* k_update = "UPDATE MessageType SET name=? WHERE id=?";
 static const char* k_delete = "DELETE FROM MessageType WHERE id=?";
@@ -36,14 +40,21 @@ static const char* k_delete = "DELETE FROM MessageType WHERE id=?";
 int message_type_insert(sqlite3* db, const char* name, DB_ID* out_id) {
 	sqlite3_stmt* s = NULL;
 
-	if (sqlite3_prepare_v2(db, k_insert, -1, &s, NULL) != SQLITE_OK)
+	if (sqlite3_prepare_v2(db, k_insert, -1, &s, NULL) != SQLITE_OK) {
 		return -1;
+	}
 
 	sqlite3_bind_text(s, 1, name, -1, SQLITE_TRANSIENT);
 	int rc = sqlite3_step(s);
 	sqlite3_finalize(s);
-	if (rc != SQLITE_DONE) return -1;
-	if (out_id) *out_id = (DB_ID)sqlite3_last_insert_rowid(db);
+
+	if (rc != SQLITE_DONE) {
+		return -1;
+	}
+
+	if (out_id) {
+		*out_id = (DB_ID)sqlite3_last_insert_rowid(db);
+	}
 
 	return 0;
 }
@@ -54,11 +65,13 @@ int message_type_insert(sqlite3* db, const char* name, DB_ID* out_id) {
 MessageType* message_type_get(sqlite3* db, DB_ID id) {
 	sqlite3_stmt* s = NULL;
 
-	if (sqlite3_prepare_v2(db, k_get, -1, &s, NULL) != SQLITE_OK)
+	if (sqlite3_prepare_v2(db, k_get, -1, &s, NULL) != SQLITE_OK) {
 		return NULL;
+	}
 
 	sqlite3_bind_int64(s, 1, (sqlite3_int64)id);
 	MessageType* out = NULL;
+
 	if (sqlite3_step(s) == SQLITE_ROW) {
 		out = malloc(sizeof(*out));
 		if (out) {
@@ -66,21 +79,25 @@ MessageType* message_type_get(sqlite3* db, DB_ID id) {
 			out->name = db_dup_col(s, 1);
 		}
 	}
-	sqlite3_finalize(s);
 
+	sqlite3_finalize(s);
 	return out;
 }
+
+
 
 
 MessageType* message_type_get_all(sqlite3* db, int* out_count) {
 	*out_count = 0;
 	sqlite3_stmt* s = NULL;
 
-	if (sqlite3_prepare_v2(db, k_getall, -1, &s, NULL) != SQLITE_OK)
+	if (sqlite3_prepare_v2(db, k_getall, -1, &s, NULL) != SQLITE_OK) {
 		return NULL;
+	}
 
 	MessageType* arr = NULL;
 	int count = 0, cap = 0;
+
 	while (sqlite3_step(s) == SQLITE_ROW) {
 		if (count >= cap) {
 			cap = cap ? cap * 2 : 8;
@@ -88,6 +105,7 @@ MessageType* message_type_get_all(sqlite3* db, int* out_count) {
 			if (!t) {
 				message_type_free_all(arr, count);
 				sqlite3_finalize(s);
+
 				return NULL;
 			}
 			arr = t;
@@ -96,6 +114,7 @@ MessageType* message_type_get_all(sqlite3* db, int* out_count) {
 		arr[count].name = db_dup_col(s, 1);
 		count++;
 	}
+
 	sqlite3_finalize(s);
 	*out_count = count;
 
@@ -105,12 +124,12 @@ MessageType* message_type_get_all(sqlite3* db, int* out_count) {
 
 
 
-
 int message_type_update(sqlite3* db, DB_ID id, const char* name) {
 	sqlite3_stmt* s = NULL;
 
-	if (sqlite3_prepare_v2(db, k_update, -1, &s, NULL) != SQLITE_OK)
+	if (sqlite3_prepare_v2(db, k_update, -1, &s, NULL) != SQLITE_OK) {
 		return -1;
+	}
 
 	sqlite3_bind_text(s, 1, name, -1, SQLITE_TRANSIENT);
 	sqlite3_bind_int64(s, 2, (sqlite3_int64)id);
@@ -121,11 +140,14 @@ int message_type_update(sqlite3* db, DB_ID id, const char* name) {
 }
 
 
+
+
 int message_type_delete(sqlite3* db, DB_ID id) {
 	sqlite3_stmt* s = NULL;
 
-	if (sqlite3_prepare_v2(db, k_delete, -1, &s, NULL) != SQLITE_OK)
+	if (sqlite3_prepare_v2(db, k_delete, -1, &s, NULL) != SQLITE_OK) {
 		return -1;
+	}
 
 	sqlite3_bind_int64(s, 1, (sqlite3_int64)id);
 	int rc = sqlite3_step(s);
@@ -133,3 +155,4 @@ int message_type_delete(sqlite3* db, DB_ID id) {
 
 	return rc == SQLITE_DONE && sqlite3_changes(db) > 0 ? 0 : -1;
 }
+

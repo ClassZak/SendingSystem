@@ -17,99 +17,209 @@
  *
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
+/**
+ * Free functions for the row structs.
+ *
+ * Every struct owns its heap strings; the *_free functions release
+ * them and clear the pointers.
+ */
+
 #include "database_models.h"
+
+
 #include <stdlib.h>
 
 
 
 
-#define FREE_STR(p) do { free((p)); (p) = NULL; } while (0)
+/**
+ * Frees *p and clears the pointer.
+ *
+ * @param p (char**, Required) — pointer to the heap string.
+ */
+static inline void free_str(char** p) {
+	if (*p) {
+		free(*p);
+		*p = NULL;
+	}
+}
 
 
 
 
+/**
+ * Releases the heap strings inside a MessageType.
+ *
+ * @param t (MessageType*, Optional) — NULL is safe.
+ */
 void message_type_free(MessageType* t) {
-	if (t)
-		FREE_STR(t->name);
+	if (t) {
+		free_str(&t->name);
+	}
 }
-void message_type_free_all(MessageType* a, int n) {
-	if (!a)
+
+
+
+
+/**
+ * Frees an array returned by message_type_get_all.
+ *
+ * @param arr (MessageType*, Optional) — NULL is safe.
+ * @param n   (int, Required) — number of elements.
+ */
+void message_type_free_all(MessageType* arr, int n) {
+	if (!arr) {
 		return;
+	}
 
-	for (int i = 0; i < n; i++)
-		message_type_free(&a[i]);
+	for (int i = 0; i < n; i++) {
+		message_type_free(&arr[i]);
+	}
 
-	free(a);
+	free(arr);
 }
 
 
 
 
+/**
+ * Releases the heap strings inside a MessageStatus.
+ *
+ * @param s (MessageStatus*, Optional) — NULL is safe.
+ */
 void message_status_free(MessageStatus* s) {
-	if (s)
-		FREE_STR(s->name);
+	if (s) {
+		free_str(&s->name);
+	}
 }
-void message_status_free_all(MessageStatus* a, int n) {
-	if (!a)
+
+
+
+
+/**
+ * Frees an array returned by message_status_get_all.
+ *
+ * @param arr (MessageStatus*, Optional) — NULL is safe.
+ * @param n   (int, Required) — number of elements.
+ */
+void message_status_free_all(MessageStatus* arr, int n) {
+	if (!arr) {
 		return;
+	}
 
-	for (int i = 0; i < n; i++) message_status_free(&a[i]);
+	for (int i = 0; i < n; i++) {
+		message_status_free(&arr[i]);
+	}
 
-	free(a);
+	free(arr);
 }
 
 
 
 
+/**
+ * Releases the heap strings inside a Connection.
+ *
+ * @param c (Connection*, Optional) — NULL is safe.
+ */
 void connection_free(Connection* c) {
-	if (c)
-		FREE_STR(c->ip);
+	if (c) {
+		free_str(&c->ip);
+	}
 }
-void connection_free_all(Connection* a, int n) {
-	if (!a)
+
+
+
+
+/**
+ * Frees an array returned by connection_get_all.
+ *
+ * @param arr (Connection*, Optional) — NULL is safe.
+ * @param n   (int, Required) — number of elements.
+ */
+void connection_free_all(Connection* arr, int n) {
+	if (!arr) {
 		return;
+	}
 
-	for (int i = 0; i < n; i++)
-		connection_free(&a[i]);
+	for (int i = 0; i < n; i++) {
+		connection_free(&arr[i]);
+	}
 
-	free(a);
+	free(arr);
 }
 
 
 
 
+/**
+ * Releases the heap strings inside a Message.
+ *
+ * @param m (Message*, Optional) — NULL is safe.
+ */
 void message_free(Message* m) {
-	if (!m)
+	if (!m) {
 		return;
+	}
 
-	FREE_STR(m->response);
-	FREE_STR(m->sending_time);
-	FREE_STR(m->request);
-}
-void message_free_all(Message* a, int n) {
-	if (!a)
-		return;
-
-	for (int i = 0; i < n; i++)
-		message_free(&a[i]);
-
-	free(a);
+	free_str(&m->response);
+	free_str(&m->sending_time);
+	free_str(&m->request);
 }
 
 
 
 
+/**
+ * Frees an array returned by message_get_all.
+ *
+ * @param arr (Message*, Optional) — NULL is safe.
+ * @param n   (int, Required) — number of elements.
+ */
+void message_free_all(Message* arr, int n) {
+	if (!arr) {
+		return;
+	}
+
+	for (int i = 0; i < n; i++) {
+		message_free(&arr[i]);
+	}
+
+	free(arr);
+}
+
+
+
+
+/**
+ * Releases the heap strings inside a NamedConnection.
+ *
+ * @param nc (NamedConnection*, Optional) — NULL is safe.
+ */
 void named_connection_free(NamedConnection* nc) {
-	if (nc)
-		FREE_STR(nc->name);
+	if (nc) {
+		free_str(&nc->name);
+	}
 }
-void named_connection_free_all(NamedConnection* a, int n) {
-	if (!a)
+
+
+
+
+/**
+ * Frees an array returned by named_connection_get_all.
+ *
+ * @param arr (NamedConnection*, Optional) — NULL is safe.
+ * @param n   (int, Required) — number of elements.
+ */
+void named_connection_free_all(NamedConnection* arr, int n) {
+	if (!arr) {
 		return;
+	}
 
-	for (int i = 0; i < n; i++)
-		named_connection_free(&a[i]);
+	for (int i = 0; i < n; i++) {
+		named_connection_free(&arr[i]);
+	}
 
-	free(a);
+	free(arr);
 }
 

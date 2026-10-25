@@ -17,7 +17,11 @@
  *
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
+/**
+ * Placeholder header for future server-module declarations.
+ *
+ * No public symbols yet — Server.c owns main() directly.
+ */
 #pragma once
 
 #include <stdio.h>
-

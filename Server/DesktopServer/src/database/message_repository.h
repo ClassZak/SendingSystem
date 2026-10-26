@@ -22,6 +22,7 @@
  */
 #pragma once
 
+#include "database_config.h"
 #include "model/database_models.h"
 #include <sqlite3.h>
 
@@ -35,13 +36,16 @@
  * @param connection_id (DB_ID, Required) — FK to Connection.id.
  * @param status_id     (DB_ID, Required) — FK to MessageStatus.id.
  * @param type_id       (DB_ID, Required) — FK to MessageType.id.
- * @param response      (const char*, Optional) — server response body.
+ * @param direction_id  (DB_ID, Required) Message direction:
+ *	1 outbound
+ *	2 inbound
+ * @param response      (const char*, Optional) — new response body.
  * @param sending_time  (const char*, Optional) — timestamp string.
  * @param request       (const char*, Optional) — client request body.
  * @param out_id        (DB_ID*, Optional) — receives the new row id.
  * @return (int) — 0 on success; -1 on SQL or FK error.
  */
-int message_insert(sqlite3* db, DB_ID connection_id, DB_ID status_id, DB_ID type_id,
+int message_insert(sqlite3* db, DB_ID connection_id, DB_ID status_id, DB_ID type_id, DB_ID direction_id,
                    const char* response, const char* sending_time,
                    const char* request, DB_ID* out_id);
 
@@ -96,12 +100,15 @@ Message* message_get_last_successful(sqlite3* db);
  * @param connection_id (DB_ID, Required) — new FK to Connection.id.
  * @param status_id     (DB_ID, Required) — new FK to MessageStatus.id.
  * @param type_id       (DB_ID, Required) — new FK to MessageType.id.
+ * @param direction_id  (DB_ID, Required) Message direction:
+ *	1 outbound
+ *	2 inbound
  * @param response      (const char*, Optional) — new response body.
  * @param sending_time  (const char*, Optional) — new timestamp.
  * @param request       (const char*, Optional) — new request body.
  * @return (int) — 0 on success; -1 if not found or on SQL/FK error.
  */
-int message_update(sqlite3* db, DB_ID id, DB_ID connection_id, DB_ID status_id, DB_ID type_id,
+int message_update(sqlite3* db, DB_ID id, DB_ID connection_id, DB_ID status_id, DB_ID type_id, DB_ID direction_id,
                    const char* response, const char* sending_time, const char* request);
 
 

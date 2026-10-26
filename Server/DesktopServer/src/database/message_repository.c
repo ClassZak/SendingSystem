@@ -27,12 +27,11 @@
 
 
 
-
-static const char* k_insert = "INSERT INTO Message(connectionId, messageStatusId, messageTypeId, response, sendingTime, request) VALUES(?,?,?,?,?,?)";
-static const char* k_get    = "SELECT id, connectionId, messageStatusId, messageTypeId, response, sendingTime, request FROM Message WHERE id=?";
-static const char* k_getall = "SELECT id, connectionId, messageStatusId, messageTypeId, response, sendingTime, request FROM Message ORDER BY id";
-static const char* k_lastok = "SELECT id, connectionId, messageStatusId, messageTypeId, response, sendingTime, request FROM Message WHERE messageStatusId=2 ORDER BY id DESC LIMIT 1";
-static const char* k_update = "UPDATE Message SET connectionId=?, messageStatusId=?, messageTypeId=?, response=?, sendingTime=?, request=? WHERE id=?";
+static const char* k_insert = "INSERT INTO Message(connectionId, messageStatusId, messageTypeId, directionId, response, sendingTime, request) VALUES(?,?,?,?,?,?,?)";
+static const char* k_get    = "SELECT id, connectionId, messageStatusId, messageTypeId, directionId, response, sendingTime, request FROM Message WHERE id=?";
+static const char* k_getall = "SELECT id, connectionId, messageStatusId, messageTypeId, directionId, response, sendingTime, request FROM Message ORDER BY id";
+static const char* k_lastok = "SELECT id, connectionId, messageStatusId, messageTypeId, directionId, response, sendingTime, request FROM Message WHERE messageStatusId=2 ORDER BY id DESC LIMIT 1";
+static const char* k_update = "UPDATE Message SET connectionId=?, messageStatusId=?, messageTypeId=?, directionId=?, response=?, sendingTime=?, request=? WHERE id=?";
 static const char* k_delete = "DELETE FROM Message WHERE id=?";
 
 
@@ -49,9 +48,10 @@ static Message* row_to_message(sqlite3_stmt* s) {
 	m->connection_id     = (DB_ID)sqlite3_column_int64(s, 1);
 	m->message_status_id = (DB_ID)sqlite3_column_int64(s, 2);
 	m->message_type_id   = (DB_ID)sqlite3_column_int64(s, 3);
-	m->response          = db_dup_col(s, 4);
-	m->sending_time      = db_dup_col(s, 5);
-	m->request           = db_dup_col(s, 6);
+	m->direction_id      = (DB_ID)sqlite3_column_int64(s, 4);
+	m->response          = db_dup_col(s, 5);
+	m->sending_time      = db_dup_col(s, 6);
+	m->request           = db_dup_col(s, 7);
 
 	return m;
 }
@@ -59,7 +59,7 @@ static Message* row_to_message(sqlite3_stmt* s) {
 
 
 
-int message_insert(sqlite3* db, DB_ID connection_id, DB_ID status_id, DB_ID type_id,
+int message_insert(sqlite3* db, DB_ID connection_id, DB_ID status_id, DB_ID type_id, DB_ID direction_id,
                    const char* response, const char* sending_time,
                    const char* request, DB_ID* out_id) {
 	sqlite3_stmt* s = NULL;
@@ -71,9 +71,10 @@ int message_insert(sqlite3* db, DB_ID connection_id, DB_ID status_id, DB_ID type
 	sqlite3_bind_int64(s, 1, (sqlite3_int64)connection_id);
 	sqlite3_bind_int64(s, 2, (sqlite3_int64)status_id);
 	sqlite3_bind_int64(s, 3, (sqlite3_int64)type_id);
-	db_bind_text_or_null(s, 4, response);
-	db_bind_text_or_null(s, 5, sending_time);
-	db_bind_text_or_null(s, 6, request);
+	sqlite3_bind_int64(s, 4, (sqlite3_int64)direction_id);
+	db_bind_text_or_null(s, 5, response);
+	db_bind_text_or_null(s, 6, sending_time);
+	db_bind_text_or_null(s, 7, request);
 	int rc = sqlite3_step(s);
 	sqlite3_finalize(s);
 
@@ -174,7 +175,7 @@ Message* message_get_last_successful(sqlite3* db) {
 
 
 
-int message_update(sqlite3* db, DB_ID id, DB_ID connection_id, DB_ID status_id, DB_ID type_id,
+int message_update(sqlite3* db, DB_ID id, DB_ID connection_id, DB_ID status_id, DB_ID type_id, DB_ID direction_id,
                    const char* response, const char* sending_time, const char* request) {
 	sqlite3_stmt* s = NULL;
 
@@ -185,10 +186,11 @@ int message_update(sqlite3* db, DB_ID id, DB_ID connection_id, DB_ID status_id, 
 	sqlite3_bind_int64(s, 1, (sqlite3_int64)connection_id);
 	sqlite3_bind_int64(s, 2, (sqlite3_int64)status_id);
 	sqlite3_bind_int64(s, 3, (sqlite3_int64)type_id);
-	db_bind_text_or_null(s, 4, response);
-	db_bind_text_or_null(s, 5, sending_time);
-	db_bind_text_or_null(s, 6, request);
-	sqlite3_bind_int64(s, 7, (sqlite3_int64)id);
+	sqlite3_bind_int64(s, 4, (sqlite3_int64)direction_id);
+	db_bind_text_or_null(s, 5, response);
+	db_bind_text_or_null(s, 6, sending_time);
+	db_bind_text_or_null(s, 7, request);
+	sqlite3_bind_int64(s, 8, (sqlite3_int64)id);
 	int rc = sqlite3_step(s);
 	sqlite3_finalize(s);
 

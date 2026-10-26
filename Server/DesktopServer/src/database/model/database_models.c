@@ -118,6 +118,74 @@ void message_status_free_all(MessageStatus* arr, int n) {
 
 
 /**
+ * Releases the heap strings inside a MessageDirection.
+ *
+ * @param s (MessageDirection*, Optional) — NULL is safe.
+ */
+void message_direction_free(MessageDirection* s) {
+	if (s) {
+		free_str(&s->name);
+	}
+}
+
+
+
+
+/**
+ * Frees an array returned by message_direction_get_all.
+ *
+ * @param arr (MessageDirection*, Optional) — NULL is safe.
+ * @param n   (int, Required) — number of elements.
+ */
+void message_direction_free_all(MessageDirection* arr, int n) {
+	if (!arr) {
+		return;
+	}
+
+	for (int i = 0; i < n; i++) {
+		message_direction_free(&arr[i]);
+	}
+
+	free(arr);
+}
+
+
+
+
+/**
+ * Releases the heap strings inside a ConnectionRole.
+ *
+ * @param s (ConnectionRole*, Optional) — NULL is safe.
+ */
+void connection_role_free(ConnectionRole* s) {
+	if (s) {
+		free_str(&s->name);
+	}
+}
+
+
+
+
+/**
+ * Frees an array returned by connection_role_get_all.
+ *
+ * @param arr (ConnectionRole*, Optional) — NULL is safe.
+ * @param n   (int, Required) — number of elements.
+ */
+void connection_role_free_all(ConnectionRole* arr, int n) {
+	if (!arr) {
+		return;
+	}
+
+	for (int i = 0; i < n; i++) {
+		connection_role_free(&arr[i]);
+	}
+
+	free(arr);
+}
+
+
+/**
  * Releases the heap strings inside a Connection.
  *
  * @param c (Connection*, Optional) — NULL is safe.

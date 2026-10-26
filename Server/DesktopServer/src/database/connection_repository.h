@@ -31,14 +31,19 @@
 /**
  * Inserts a new Connection row.
  *
- * @param db     (sqlite3*, Required) — open database.
- * @param ip     (const char*, Optional) — IP address or hostname.
- * @param port   (int, Required) — TCP port.
- * @param ssl    (int, Required) — 1 if TLS, 0 otherwise.
- * @param out_id (DB_ID*, Optional) — receives the new row id.
+ * @param db      (sqlite3*, Required) — open database.
+ * @param ip      (const char*, Optional) — IP address or hostname.
+ * @param port    (int, Required) — TCP port.
+ * @param ssl     (int, Required) — 1 if TLS, 0 otherwise.
+ * @param role_id (DB_ID, Required) - Connection role:
+ *	1 server
+ *	2 client
+ *	3 master
+ *	4 slave
+ * @param out_id  (DB_ID*, Optional) — receives the new row id.
  * @return (int) — 0 on success; -1 on SQL error.
  */
-int connection_insert(sqlite3* db, const char* ip, int port, int ssl, DB_ID* out_id);
+int connection_insert(sqlite3* db, const char* ip, int port, int ssl, DB_ID role_id, DB_ID* out_id);
 
 
 
@@ -76,9 +81,14 @@ Connection* connection_get_all(sqlite3* db, int* out_count);
  * @param ip   (const char*, Optional) — IP address or hostname.
  * @param port (int, Required) — TCP port.
  * @param ssl  (int, Required) — 1 if TLS, 0 otherwise.
+ * @param role_id (DB_ID, Required) - Connection role:
+ *	1 server
+ *	2 client
+ *	3 master
+ *	4 slave
  * @return (DB_ID) — existing or new row id; -1 on SQL error.
  */
-DB_ID connection_get_or_create(sqlite3* db, const char* ip, int port, int ssl);
+DB_ID connection_get_or_create(sqlite3* db, const char* ip, int port, int ssl, DB_ID role_id);
 
 
 
@@ -91,9 +101,14 @@ DB_ID connection_get_or_create(sqlite3* db, const char* ip, int port, int ssl);
  * @param ip   (const char*, Optional) — new IP address.
  * @param port (int, Required) — new port.
  * @param ssl  (int, Required) — new SSL flag.
+ * @param role_id (DB_ID, Required) - Connection role:
+ *	1 server
+ *	2 client
+ *	3 master
+ *	4 slave
  * @return (int) — 0 on success; -1 if not found or on SQL error.
  */
-int connection_update(sqlite3* db, DB_ID id, const char* ip, int port, int ssl);
+int connection_update(sqlite3* db, DB_ID id, const char* ip, int port, int ssl, DB_ID role_id);
 
 
 

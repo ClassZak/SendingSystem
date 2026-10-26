@@ -28,17 +28,16 @@
 
 
 
-static const char* k_insert = "INSERT INTO Connection(ip, port, isSSLEncrypted) VALUES(?,?,?)";
-static const char* k_get    = "SELECT id, ip, port, isSSLEncrypted FROM Connection WHERE id=?";
-static const char* k_getall = "SELECT id, ip, port, isSSLEncrypted FROM Connection ORDER BY id";
-static const char* k_find   = "SELECT id FROM Connection WHERE ip=? AND port=? AND isSSLEncrypted=?";
-static const char* k_update = "UPDATE Connection SET ip=?, port=?, isSSLEncrypted=? WHERE id=?";
+static const char* k_insert = "INSERT INTO Connection(ip, port, isSSLEncrypted, roleId) VALUES(?,?,?,?)";
+static const char* k_get    = "SELECT id, ip, port, isSSLEncrypted, roleId FROM Connection WHERE id=?";
+static const char* k_getall = "SELECT id, ip, port, isSSLEncrypted, roleId FROM Connection ORDER BY id";
+static const char* k_find   = "SELECT id FROM Connection WHERE ip=? AND port=? AND isSSLEncrypted=? AND roleId=?";
+static const char* k_update = "UPDATE Connection SET ip=?, port=?, isSSLEncrypted=?, roleId=? WHERE id=?";
 static const char* k_delete = "DELETE FROM Connection WHERE id=?";
 
 
 
-
-int connection_insert(sqlite3* db, const char* ip, int port, int ssl, DB_ID* out_id) {
+int connection_insert(sqlite3* db, const char* ip, int port, int ssl, DB_ID role_id, DB_ID* out_id) {
 	sqlite3_stmt* s = NULL;
 
 	if (sqlite3_prepare_v2(db, k_insert, -1, &s, NULL) != SQLITE_OK) {
@@ -48,6 +47,7 @@ int connection_insert(sqlite3* db, const char* ip, int port, int ssl, DB_ID* out
 	db_bind_text_or_null(s, 1, ip);
 	sqlite3_bind_int(s, 2, port);
 	sqlite3_bind_int(s, 3, ssl);
+	sqlite3_bind_int(s, 4, role_id);
 	int rc = sqlite3_step(s);
 	sqlite3_finalize(s);
 
@@ -82,6 +82,7 @@ Connection* connection_get(sqlite3* db, DB_ID id) {
 			out->ip               = db_dup_col(s, 1);
 			out->port             = sqlite3_column_int(s, 2);
 			out->is_ssl_encrypted = sqlite3_column_int(s, 3);
+			out->role_id          = sqlite3_column_int(s, 4);
 		}
 	}
 
@@ -119,6 +120,7 @@ Connection* connection_get_all(sqlite3* db, int* out_count) {
 		arr[count].ip               = db_dup_col(s, 1);
 		arr[count].port             = sqlite3_column_int(s, 2);
 		arr[count].is_ssl_encrypted = sqlite3_column_int(s, 3);
+		arr[count].role_id          = sqlite3_column_int(s, 4);
 		++count;
 	}
 
@@ -131,7 +133,7 @@ Connection* connection_get_all(sqlite3* db, int* out_count) {
 
 
 
-DB_ID connection_get_or_create(sqlite3* db, const char* ip, int port, int ssl) {
+DB_ID connection_get_or_create(sqlite3* db, const char* ip, int port, int ssl, DB_ID role_id) {
 	sqlite3_stmt* s = NULL;
 
 	if (sqlite3_prepare_v2(db, k_find, -1, &s, NULL) != SQLITE_OK) {
@@ -141,6 +143,7 @@ DB_ID connection_get_or_create(sqlite3* db, const char* ip, int port, int ssl) {
 	db_bind_text_or_null(s, 1, ip);
 	sqlite3_bind_int(s, 2, port);
 	sqlite3_bind_int(s, 3, ssl);
+	sqlite3_bind_int(s, 4, role_id);
 
 	DB_ID id = -1;
 	if (sqlite3_step(s) == SQLITE_ROW) {
@@ -152,7 +155,7 @@ DB_ID connection_get_or_create(sqlite3* db, const char* ip, int port, int ssl) {
 		return id;
 	}
 
-	if (connection_insert(db, ip, port, ssl, &id) != 0) {
+	if (connection_insert(db, ip, port, ssl, role_id, &id) != 0) {
 		return -1;
 	}
 
@@ -162,7 +165,7 @@ DB_ID connection_get_or_create(sqlite3* db, const char* ip, int port, int ssl) {
 
 
 
-int connection_update(sqlite3* db, DB_ID id, const char* ip, int port, int ssl) {
+int connection_update(sqlite3* db, DB_ID id, const char* ip, int port, int ssl, DB_ID role_id) {
 	sqlite3_stmt* s = NULL;
 
 	if (sqlite3_prepare_v2(db, k_update, -1, &s, NULL) != SQLITE_OK) {
@@ -172,7 +175,8 @@ int connection_update(sqlite3* db, DB_ID id, const char* ip, int port, int ssl) 
 	db_bind_text_or_null(s, 1, ip);
 	sqlite3_bind_int(s, 2, port);
 	sqlite3_bind_int(s, 3, ssl);
-	sqlite3_bind_int64(s, 4, (sqlite3_int64)id);
+	sqlite3_bind_int(s, 4, role_id);
+	sqlite3_bind_int64(s, 5, (sqlite3_int64)id);
 	int rc = sqlite3_step(s);
 	sqlite3_finalize(s);
 

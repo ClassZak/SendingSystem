@@ -96,6 +96,8 @@ add_executable(
 	${CMAKE_SOURCE_DIR}/src/handlers/api_upload.c
 	${CMAKE_SOURCE_DIR}/src/database/Database.c
 	${CMAKE_SOURCE_DIR}/src/database/connection_repository.c
+	${CMAKE_SOURCE_DIR}/src/database/connection_role_repository.c
+	${CMAKE_SOURCE_DIR}/src/database/message_direction_repository.c
 	${CMAKE_SOURCE_DIR}/src/database/message_repository.c
 	${CMAKE_SOURCE_DIR}/src/database/message_type_repository.c
 	${CMAKE_SOURCE_DIR}/src/database/message_status_repository.c

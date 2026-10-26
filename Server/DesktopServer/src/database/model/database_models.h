@@ -49,9 +49,26 @@ typedef struct {
 
 typedef struct {
 	DB_ID id;
+	char* name;   /**< owned; may be NULL */
+} MessageDirection;
+
+
+
+
+typedef struct {
+	DB_ID id;
+	char* name;   /**< owned; may be NULL */
+} ConnectionRole;
+
+
+
+
+typedef struct {
+	DB_ID id;
 	char* ip;                /**< owned; may be NULL */
 	int   port;
 	int   is_ssl_encrypted;  /**< 0 or 1 */
+	DB_ID role_id;			 /** 1 - 4 */
 } Connection;
 
 
@@ -62,6 +79,7 @@ typedef struct {
 	DB_ID connection_id;
 	DB_ID message_status_id;
 	DB_ID message_type_id;
+	DB_ID direction_id;
 	char* response;      /**< owned; may be NULL */
 	char* sending_time;  /**< owned; may be NULL */
 	char* request;       /**< owned; may be NULL */
@@ -117,6 +135,48 @@ void message_status_free(MessageStatus* s);
  * @param n   (int, Required) — number of elements.
  */
 void message_status_free_all(MessageStatus* arr, int n);
+
+
+
+
+/**
+ * Releases the heap strings inside a MessageDirection.
+ *
+ * @param s (MessageDirection*, Optional) — NULL is safe.
+ */
+void message_direction_free(MessageDirection* s);
+
+
+
+
+/**
+ * Frees an array returned by message_direction_get_all.
+ *
+ * @param arr (MessageDirection*, Optional) — NULL is safe.
+ * @param n   (int, Required) — number of elements.
+ */
+void message_direction_free_all(MessageDirection* arr, int n);
+
+
+
+
+/**
+ * Releases the heap strings inside a ConnectionRole.
+ *
+ * @param s (ConnectionRole*, Optional) — NULL is safe.
+ */
+void connection_role_free(ConnectionRole* s);
+
+
+
+
+/**
+ * Frees an array returned by connection_role_get_all.
+ *
+ * @param arr (ConnectionRole*, Optional) — NULL is safe.
+ * @param n   (int, Required) — number of elements.
+ */
+void connection_role_free_all(ConnectionRole* arr, int n);
 
 
 

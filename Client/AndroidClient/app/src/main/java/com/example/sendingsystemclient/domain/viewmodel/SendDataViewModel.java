@@ -8,8 +8,10 @@ import androidx.annotation.Nullable;
 import com.example.sendingsystemclient.App;
 import com.example.sendingsystemclient.data.model.Connection;
 import com.example.sendingsystemclient.data.model.Message;
+import com.example.sendingsystemclient.domain.model.ConnectionRole;
 import com.example.sendingsystemclient.domain.model.Connector;
 import com.example.sendingsystemclient.domain.model.IPVersion;
+import com.example.sendingsystemclient.domain.model.MessageDirection;
 import com.example.sendingsystemclient.domain.model.MessageStatus;
 import com.example.sendingsystemclient.domain.model.SendingType;
 
@@ -104,7 +106,7 @@ public class SendDataViewModel {
      *
      * @param cfg (Config, Required) — fully-populated configuration.
      * @return (String) — raw JSON response body from the server.
-     * @throws Exception if the port/IP are invalid, a send is already
+     * @throws Exception if the port/IP are invalid, send is already
      *         in progress, or the transport layer throws.
      */
     public String SendData(Config cfg) throws Exception {
@@ -128,12 +130,12 @@ public class SendDataViewModel {
 
         // Ensure a Connection row exists (upsert by IP+port+TLS flag).
         Connection conn = app.getConnectionRepository()
-                .getByIpAndPortAndIsSSLEncrypted(cfg.serverIp, serverPort, cfg.isSSLEncryptEnabled);
+                .getByIpAndPortAndIsSSLEncryptedAndConnectionRoleId(cfg.serverIp, serverPort, cfg.isSSLEncryptEnabled, ConnectionRole.SERVER.index());
         if (conn == null) {
             app.getConnectionRepository().insert(
-                    new Connection(serverPort, cfg.serverIp, cfg.isSSLEncryptEnabled));
+                    new Connection(serverPort, cfg.serverIp, cfg.isSSLEncryptEnabled, ConnectionRole.SERVER.index()));
             conn = app.getConnectionRepository()
-                    .getByIpAndPortAndIsSSLEncrypted(cfg.serverIp, serverPort, cfg.isSSLEncryptEnabled);
+                    .getByIpAndPortAndIsSSLEncryptedAndConnectionRoleId(cfg.serverIp, serverPort, cfg.isSSLEncryptEnabled, ConnectionRole.SERVER.index());
         }
 
         SimpleDateFormat sdf = new SimpleDateFormat(
@@ -142,6 +144,7 @@ public class SendDataViewModel {
                 conn.id,
                 MessageStatus.FAILED.index(),
                 cfg.sendingType.index(),
+                MessageDirection.OUTBOUND.index(),
                 "",
                 sdf.format(new Date(System.currentTimeMillis())),
                 cfg.sendingType == SendingType.FILE ? "" : cfg.sendingData);

@@ -9,5 +9,5 @@ public interface ConnectionRepository {
     List<Connection> getAll();
     Connection getById(int id);
     void insert(Connection connection);
-    Connection getByIpAndPortAndIsSSLEncrypted(String ip, int port, boolean isSSLEncrypted);
+    Connection getByIpAndPortAndIsSSLEncryptedAndConnectionRoleId(String ip, int port, boolean isSSLEncrypted, int roleId);
 }

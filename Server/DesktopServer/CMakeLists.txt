@@ -93,6 +93,7 @@ add_executable(
 	${CMAKE_SOURCE_DIR}/src/util/get_public_ip_upnp.c
 	${CMAKE_SOURCE_DIR}/src/handlers/http_json.c
 	${CMAKE_SOURCE_DIR}/src/handlers/api_send.c
+	${CMAKE_SOURCE_DIR}/src/handlers/api_openapi.c
 	${CMAKE_SOURCE_DIR}/src/handlers/api_upload.c
 	${CMAKE_SOURCE_DIR}/src/database/Database.c
 	${CMAKE_SOURCE_DIR}/src/database/connection_repository.c

@@ -84,6 +84,7 @@ static int save_text_to_file(const char* data, const char* save_to_path,
 	if (!f) {
 		pthread_mutex_unlock(&mtx_fprint);
 		print_error("Cannot open %s\n", full_path);
+		print_error("Error in file '%s', line:%d in '%s'\n", __FILE__, __LINE__, __FUNCTION__);
 
 		return -1;
 	}
@@ -133,9 +134,9 @@ static int save_text_to_file(const char* data, const char* save_to_path,
  * @return (int) — always 1.
  */
 int api_send_handler(struct mg_connection* conn, void* cbdata) {
-	const struct mg_request_info* ri = mg_get_request_info(conn);
+	const struct mg_request_info* request_info = mg_get_request_info(conn);
 
-	if (strcmp(ri->request_method, "POST") != 0) {
+	if (strcmp(request_info->request_method, "POST") != 0) {
 		http_send_error(conn, 405, "POST required");
 
 		return 1;

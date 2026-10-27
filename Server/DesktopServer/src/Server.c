@@ -35,6 +35,7 @@
 #include "util/get_public_ip_http.h"
 #include "PrintProcedures/PrintProcedures.h"
 #include "FileService/FileService.h"
+#include "handlers/api_openapi.h"
 #include "handlers/api_send.h"
 #include "handlers/api_upload.h"
 #include "database/Database.h"
@@ -96,6 +97,7 @@ static void install_signals(void) {
 	if (sigaction(SIGINT, &sa, NULL) == -1 ||
 	    sigaction(SIGTERM, &sa, NULL) == -1) {
 		print_error(FAILED_SIGNAL_HANDLERS_MESSAGE);
+		print_error("Error in file '%s', line:%d in '%s'\n", __FILE__, __LINE__, __FUNCTION__);
 		exit(EXIT_FAILURE);
 	}
 
@@ -119,6 +121,7 @@ static long get_cpu_count(void) {
 	if (nprocs == -1) {
 		int err = errno;
 		print_error("Failed to get CPU count: %d, %s\n", err, strerror(err));
+		print_error("Error in file '%s', line:%d in '%s'\n", __FILE__, __LINE__, __FUNCTION__);
 	}
 #else
 	SYSTEM_INFO sys_info;
@@ -202,6 +205,7 @@ int main(void) {
 	sqlite3* db = NULL;
 	if (database_open(DATABASE_FILENAME, &db) != 0) {
 		print_error("Failed to open database\n");
+		print_error("Error in file '%s', line:%d in '%s'\n", __FILE__, __LINE__, __FUNCTION__);
 		mg_exit_library();
 
 		return EXIT_FAILURE;
@@ -223,6 +227,7 @@ int main(void) {
 		"num_threads",         cpu_count_buf,
 		"request_timeout_ms",  "30000",
 		"enable_keep_alive",   "yes",
+		"document_root",       WEBROOT_DIR,
 		SSL_ENCRYPT ? "ssl_certificate" : "document_root",
 		SSL_ENCRYPT ? PUBLIC_KEY_FILE   : ".",
 		NULL
@@ -234,6 +239,7 @@ int main(void) {
 	struct mg_context* ctx = mg_start(&cb, NULL, options);
 	if (!ctx) {
 		print_error("mg_start failed\n");
+		print_error("Error in file '%s', line:%d in '%s'\n", __FILE__, __LINE__, __FUNCTION__);
 		database_close(db);
 		mg_exit_library();
 
@@ -243,9 +249,11 @@ int main(void) {
 
 	mg_set_request_handler(ctx, "/api/send",   api_send_handler,   NULL);
 	mg_set_request_handler(ctx, "/api/upload", api_upload_handler, NULL);
+	mg_set_request_handler(ctx, "/api/openapi.json", api_openapi_handler, NULL);
 
 	print_success("Server started\n");
 	print_info("  POST http://0.0.0.0:%d/api/send\n",   CONNECTION_PORT);
+	print_info("  POST http://0.0.0.0:%d/api/openapi.json\n", CONNECTION_PORT);
 	print_info("  POST http://0.0.0.0:%d/api/upload\n", CONNECTION_PORT);
 	if (SSL_ENCRYPT) {
 		print_info("  HTTPS on port %d (cert: %s)\n", CONNECTION_PORT, PUBLIC_KEY_FILE);

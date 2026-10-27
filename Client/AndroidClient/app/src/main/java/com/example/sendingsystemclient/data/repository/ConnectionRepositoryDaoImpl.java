@@ -30,7 +30,7 @@ public class ConnectionRepositoryDaoImpl implements ConnectionRepository {
     }
 
     @Override
-    public Connection getByIpAndPortAndIsSSLEncrypted(String ip, int port, boolean isSSLEncrypted) {
-        return dao.getByIpAndPortAndIsSSLEncrypted(ip, port, isSSLEncrypted);
+    public Connection getByIpAndPortAndIsSSLEncryptedAndConnectionRoleId(String ip, int port, boolean isSSLEncrypted, int roleId) {
+        return dao.getByIpAndPortAndIsSSLEncryptedAndConnectionRoleId(ip, port, isSSLEncrypted, roleId);
     }
 }

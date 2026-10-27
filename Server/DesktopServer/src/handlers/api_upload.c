@@ -101,11 +101,13 @@ static int on_field_found(const char* key, const char* filename,
 
 	if (!u->fp) {
 		print_error("Cannot open %s for write\n", path);
+		print_error("Error in file '%s', line:%d in '%s'\n", __FILE__, __LINE__, __FUNCTION__);
 
 		return MG_FORM_FIELD_STORAGE_ABORT;
 	}
 
 	print_info("[UPLOAD] Receiving %s\n", path);
+	print_error("Error in file '%s', line:%d in '%s'\n", __FILE__, __LINE__, __FUNCTION__);
 
 	return MG_FORM_FIELD_STORAGE_STORE;
 }

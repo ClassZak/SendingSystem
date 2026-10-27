@@ -22,6 +22,6 @@ public interface ConnectionDao {
     @Query("SELECT * FROM Connection WHERE id = :id")
     Connection getById(int id);
 
-    @Query("SELECT * FROM Connection WHERE ip = :ip AND port = :port AND isSSLEncrypted = :isSSLEncrypted LIMIT 1")
-    Connection getByIpAndPortAndIsSSLEncrypted(String ip, int port, boolean isSSLEncrypted);
+    @Query("SELECT * FROM Connection WHERE ip = :ip AND port = :port AND isSSLEncrypted = :isSSLEncrypted AND roleId = :roleId LIMIT 1")
+    Connection getByIpAndPortAndIsSSLEncryptedAndConnectionRoleId(String ip, int port, boolean isSSLEncrypted, int roleId);
 }

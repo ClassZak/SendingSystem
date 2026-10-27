@@ -59,7 +59,6 @@ CREATE TABLE IF NOT EXISTS Connection(
 	port			INTEGER NOT NULL,
 	isSSLEncrypted	INTEGER NOT NULL,
 	roleId			INTEGER NOT NULL,
-	FOREIGN KEY(directionId) REFERENCES MessageDirection(id),
 	FOREIGN KEY(roleId)		 REFERENCES ConnectionRole(id)
 );
 CREATE UNIQUE INDEX IF NOT EXISTS ux_Connection_peer
@@ -120,10 +119,10 @@ INSERT OR IGNORE INTO MessageType(id, name) VALUES (2, 'FILE');
 INSERT OR IGNORE INTO MessageStatus(id, name) VALUES (1, 'SUCCESS');
 INSERT OR IGNORE INTO MessageStatus(id, name) VALUES (2, 'FAILED');
 -- Message direction
-INSERT OR IGNORE INTO MessageDirection(id, name) VALUES (1, 'outbound');
-INSERT OR IGNORE INTO MessageDirection(id, name) VALUES (2, 'inbound');
+insert or ignore into messagedirection(id, name) values (1, 'OUTBOUND');
+insert or ignore into mESSAGEdIRECTION(ID, NAME) values (2, 'INBOUND');
 -- Connection role
-INSERT OR IGNORE INTO ConnectionRole(id, name) VALUES (1, 'server');
-INSERT OR IGNORE INTO ConnectionRole(id, name) VALUES (2, 'client');
-INSERT OR IGNORE INTO ConnectionRole(id, name) VALUES (3, 'master');
-INSERT OR IGNORE INTO ConnectionRole(id, name) VALUES (4, 'slave');
+INSERT OR IGNORE INTO ConnectionRole(id, name) VALUES (1, 'SERVER');
+INSERT OR IGNORE INTO ConnectionRole(id, name) VALUES (2, 'CLIENT');
+INSERT OR IGNORE INTO ConnectionRole(id, name) VALUES (3, 'MASTER');
+INSERT OR IGNORE INTO ConnectionRole(id, name) VALUES (4, 'SLAVE');

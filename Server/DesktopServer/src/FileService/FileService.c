@@ -139,6 +139,7 @@ void print_pwd(void) {
 		print_info("Current working directory: %s\n", buffer);
 	} else {
 		print_error("Error getting current directory\n");
+		print_error("Error in file '%s', line:%d in '%s'\n", __FILE__, __LINE__, __FUNCTION__);
 	}
 }
 
@@ -178,10 +179,12 @@ char* read_file_full(const char* filename, long* data_size) {
 #ifdef _WIN32
     err = GetLastError();
     print_error("Error reading file '%s': code %lu\n", filename, (unsigned long)err);
+	print_error("Error in file '%s', line:%d in '%s'\n", __FILE__, __LINE__, __FUNCTION__);
 #else
     err = errno;
     print_error("Error reading file '%s': code %d %s\n",
                 filename, err, strerror(err));
+	print_error("Error in file '%s', line:%d in '%s'\n", __FILE__, __LINE__, __FUNCTION__);
 #endif
 		return NULL;
 	}
@@ -192,10 +195,12 @@ char* read_file_full(const char* filename, long* data_size) {
 #ifdef _WIN32
 		err = GetLastError();
 		print_error("Error reading file '%s': code %lu\n", filename, (unsigned long)err);
+		print_error("Error in file '%s', line:%d in '%s'\n", __FILE__, __LINE__, __FUNCTION__);
 #else
 		err = errno;
 		print_error("Error reading file '%s': code %d %s\n",
 					filename, err, strerror(err));
+		print_error("Error in file '%s', line:%d in '%s'\n", __FILE__, __LINE__, __FUNCTION__);
 #endif
 		return NULL;
 	}
@@ -252,6 +257,7 @@ int touch_file(const char* filename) {
 	if (hFile == INVALID_HANDLE_VALUE) {
 		print_error("Cannot open/create '%s': code %lu\n",
 		            filename, GetLastError());
+		print_error("Error in file '%s', line:%d in '%s'\n", __FILE__, __LINE__, __FUNCTION__);
 		return -1;
 	}
 
@@ -263,6 +269,7 @@ int touch_file(const char* filename) {
 	if (!SetFileTime(hFile, NULL, &now_file, &now_file)) {
 		print_error("Cannot update timestamp '%s': code %lu\n",
 		            filename, GetLastError());
+		print_error("Error in file '%s', line:%d in '%s'\n", __FILE__, __LINE__, __FUNCTION__);
 		CloseHandle(hFile);
 		return -1;
 	}
@@ -273,12 +280,14 @@ int touch_file(const char* filename) {
 	FILE* file = fopen(filename, "a");
 	if (!file) {
 		print_error("Cannot open/create '%s'\n", filename);
+		print_error("Error in file '%s', line:%d in '%s'\n", __FILE__, __LINE__, __FUNCTION__);
 		return -1;
 	}
 	fclose(file);
 
 	if (utimensat(AT_FDCWD, filename, NULL, 0) < 0) {
 		print_error("Cannot update timestamp '%s'\n", filename);
+		print_error("Error in file '%s', line:%d in '%s'\n", __FILE__, __LINE__, __FUNCTION__);
 		return -1;
 	}
 

@@ -22,6 +22,11 @@ import androidx.room.PrimaryKey;
                         entity = MessageType.class,
                         parentColumns = "id",
                         childColumns = "messageTypeId"
+                ),
+                @ForeignKey(
+                        entity = MessageDirection.class,
+                        parentColumns = "id",
+                        childColumns = "directionId"
                 )
         }
 )
@@ -31,6 +36,7 @@ public class Message {
     public int connectionId;
     public int messageStatusId;
     public int messageTypeId;
+    public int directionId;
     public String response;
     public String sendingTime;
     public String request;
@@ -39,6 +45,7 @@ public class Message {
             int connectionId,
             int messageStatusId,
             int messageTypeId,
+            int directionId,
             String response,
             String sendingTime,
             String request
@@ -46,6 +53,7 @@ public class Message {
         this.connectionId = connectionId;
         this.messageStatusId = messageStatusId;
         this.messageTypeId = messageTypeId;
+        this.directionId = directionId;
         this.response = response;
         this.sendingTime = sendingTime;
         this.request = request;

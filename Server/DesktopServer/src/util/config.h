@@ -40,6 +40,12 @@ static const char* CONNECTION_IP = "0.0.0.0";
 
 
 
+/* ---------- Static files ---------- */
+/** Root directory for HTML/JS/CSS served by GET. */
+static const char* WEBROOT_DIR = "frontend";
+
+
+
 /* ---------- TLS ---------- */
 /** When true, CivetWeb opens the port in TLS mode. */
 static const bool  SSL_ENCRYPT       = true;

@@ -34,6 +34,7 @@
 
 /**
  * Opens (or creates) the database and applies the schema.
+ * Print errors
  *
  * @param filename (const char*, Required) — SQLite file path.
  * @param out_db   (sqlite3**, Required) — receives the open handle.

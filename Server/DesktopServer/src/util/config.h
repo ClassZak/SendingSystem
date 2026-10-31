@@ -27,13 +27,17 @@
 #pragma once
 
 #include <stdbool.h>
+#include <stdint.h>
+
+
+#include "../database/model/database_enums.h"
 
 
 
 
 /* ---------- Network ---------- */
 /** Listening port for HTTP and (optionally) HTTPS. */
-#define CONNECTION_PORT  5000
+static uint16_t CONNECTION_PORT = 5000;
 /** Bind address; "0.0.0.0" accepts connections on all interfaces. */
 static const char* CONNECTION_IP = "0.0.0.0";
 
@@ -82,6 +86,12 @@ static const char* PRIVATE_KEY_FILE  = "server.key";
 /* ---------- Messages ---------- */
 /** Emitted when signal handlers cannot be installed. */
 #define FAILED_SIGNAL_HANDLERS_MESSAGE "Failed to set up signal handlers\n"
+
+
+
+
+/* ---------- Static variables ----------- */
+static ConnectionRoleId INCOMING_PEER_ROLE = CONNECTION_ROLE_CLIENT;
 
 
 

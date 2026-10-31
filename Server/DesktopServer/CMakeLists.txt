@@ -88,6 +88,7 @@ add_executable(
 	${CMAKE_SOURCE_DIR}/src/FileService/FileService.h
 	${CMAKE_SOURCE_DIR}/src/FileService/FileService.c
 	${CMAKE_SOURCE_DIR}/src/util/config.h
+	${CMAKE_SOURCE_DIR}/src/util/now_timestamp.c
 	${CMAKE_SOURCE_DIR}/src/util/get_server_ip_addresses.c
 	${CMAKE_SOURCE_DIR}/src/util/get_public_ip_http.c
 	${CMAKE_SOURCE_DIR}/src/util/get_public_ip_upnp.c
@@ -95,6 +96,8 @@ add_executable(
 	${CMAKE_SOURCE_DIR}/src/handlers/api_send.c
 	${CMAKE_SOURCE_DIR}/src/handlers/api_openapi.c
 	${CMAKE_SOURCE_DIR}/src/handlers/api_upload.c
+	${CMAKE_SOURCE_DIR}/src/handlers/save_connection.c
+	${CMAKE_SOURCE_DIR}/src/handlers/save_message.c
 	${CMAKE_SOURCE_DIR}/src/database/Database.c
 	${CMAKE_SOURCE_DIR}/src/database/connection_repository.c
 	${CMAKE_SOURCE_DIR}/src/database/connection_role_repository.c

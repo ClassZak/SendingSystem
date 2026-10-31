@@ -138,6 +138,11 @@ public class SendDataViewModel {
                     .getByIpAndPortAndIsSSLEncryptedAndConnectionRoleId(cfg.serverIp, serverPort, cfg.isSSLEncryptEnabled, ConnectionRole.SERVER.index());
         }
 
+        if (cfg.saveToPath == null || cfg.saveToPath.isEmpty()) {
+            connector.setSaveToPath(null);
+        } else {
+            connector.setSaveToPath(Connector.sanitizeFilename(cfg.saveToPath));
+        }
         SimpleDateFormat sdf = new SimpleDateFormat(
                 "yyyy-MM-dd HH:mm:ss", Locale.getDefault());
         Message message = new Message(
@@ -147,7 +152,7 @@ public class SendDataViewModel {
                 MessageDirection.OUTBOUND.index(),
                 "",
                 sdf.format(new Date(System.currentTimeMillis())),
-                cfg.sendingType == SendingType.FILE ? "" : cfg.sendingData);
+                cfg.sendingType == SendingType.FILE ? cfg.saveToPath : cfg.sendingData);
 
         // Configure the connector for this call.
         connector.serverIp            = cfg.serverIp;
@@ -159,12 +164,6 @@ public class SendDataViewModel {
         connector.setTrustMode(cfg.trustMode);
         connector.setPinnedSha256(cfg.pinnedSha256);
         connector.setProgressListener(cfg.progressListener);
-
-        if (cfg.saveToPath == null || cfg.saveToPath.isEmpty()) {
-            connector.setSaveToPath(null);
-        } else {
-            connector.setSaveToPath(Connector.sanitizeFilename(cfg.saveToPath));
-        }
 
         if (cfg.fileUri != null && cfg.contentResolver != null) {
             connector.setFileUri(cfg.contentResolver, cfg.fileUri, cfg.fileName);

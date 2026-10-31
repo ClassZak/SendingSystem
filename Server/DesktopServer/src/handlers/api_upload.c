@@ -26,15 +26,25 @@
 
 #include "api_upload.h"
 #include "http_json.h"
+#include "save_connection.h"
+#include "save_message.h"
+
 #include "../util/config.h"
+#include "../util/now_timestamp.h"
 #include "../FileService/FileService.h"
 #include "../PrintProcedures/PrintProcedures.h"
+
+#include "../database/model/database_models.h"
+#include "../database/model/database_enums.h"
+#include "../database/database_config.h"
+#include "../database/message_repository.h"
 
 
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
 #include <pthread.h>
+#include <time.h>
 #ifdef _WIN32
 #include <direct.h>
 #else
@@ -101,13 +111,12 @@ static int on_field_found(const char* key, const char* filename,
 
 	if (!u->fp) {
 		print_error("Cannot open %s for write\n", path);
-		print_error("Error in file '%s', line:%d in '%s'\n", __FILE__, __LINE__, __FUNCTION__);
-
+		print_error("Error in file '%s', line:%d in '%s'\n",
+		            __FILE__, __LINE__, __FUNCTION__);
 		return MG_FORM_FIELD_STORAGE_ABORT;
 	}
 
 	print_info("[UPLOAD] Receiving %s\n", path);
-	print_error("Error in file '%s', line:%d in '%s'\n", __FILE__, __LINE__, __FUNCTION__);
 
 	return MG_FORM_FIELD_STORAGE_STORE;
 }
@@ -163,19 +172,19 @@ static int on_field_store(const char* path, long long size, void* user_data) {
 /**
  * Handles POST /api/upload.
  *
- * @param conn   (struct mg_connection*, Required) — CivetWeb connection.
- * @param cbdata (void*, Optional) — unused.
+ * @param connection    (struct mg_connection*, Required) — CivetWeb connection.
+ * @param callback_data (void*, Optional) — unused.
  * @return (int) — always 1.
  */
-int api_upload_handler(struct mg_connection* conn, void* cbdata) {
-	const struct mg_request_info* ri = mg_get_request_info(conn);
+int api_upload_handler(struct mg_connection* connection, void* callback_data) {
+	const struct mg_request_info* request_info =
+		mg_get_request_info(connection);
 
-	if (strcmp(ri->request_method, "POST") != 0) {
-		http_send_error(conn, 405, "POST required");
-
+	/* Validate method before touching the database. */
+	if (strcmp(request_info->request_method, "POST") != 0) {
+		http_send_error(connection, 405, "POST required");
 		return 1;
 	}
-
 
 	upload_ctx_t u = {0};
 	struct mg_form_data_handler fdh = {0};
@@ -184,7 +193,7 @@ int api_upload_handler(struct mg_connection* conn, void* cbdata) {
 	fdh.field_store = on_field_store;
 	fdh.user_data   = &u;
 
-	int fields = mg_handle_form_request(conn, &fdh);
+	int fields = mg_handle_form_request(connection, &fdh);
 
 	if (u.fp) {
 		fclose(u.fp);
@@ -193,11 +202,57 @@ int api_upload_handler(struct mg_connection* conn, void* cbdata) {
 
 
 	if (fields < 0) {
-		http_send_error(conn, 400, "Form parse error");
-	} else {
-		http_send_json(conn, 200, "message", "File(s) received");
+		http_send_error(connection, 400, "Form parse error");
+		return 1;
 	}
 
+
+	/* The contract says /api/upload must carry at least one file part. */
+	if (u.path[0] == '\0') {
+		http_send_error(connection, 400, "No file part");
+		return 1;
+	}
+
+
+	DB_ID connection_id = save_connection(connection);
+	if (connection_id == -1) {
+		http_send_error(connection, 500, "Data base error");
+		print_error("Data base error. Failed to save connection\n");
+		print_error("Error in file '%s', line:%d in '%s'\n",
+		            __FILE__, __LINE__, __FUNCTION__);
+		return 1;
+	}
+
+
+	char* response_json = http_build_json("message", "File(s) received");
+
+	char sending_time[32];
+	now_timestamp(sending_time, sizeof(sending_time));
+
+	Message message;
+	memset(&message, 0, sizeof(message));
+	message.connection_id     = connection_id;
+	message.message_status_id = MESSAGE_STATUS_SUCCESS;
+	message.message_type_id   = MESSAGE_TYPE_FILE;
+	message.direction_id      = MESSAGE_DIRECTION_INBOUND;
+	message.request           = u.path;
+	message.response          = response_json;
+	message.sending_time      = sending_time;
+
+
+	DB_ID message_id = save_message(&message);
+	if (message_id == -1) {
+		/* Still deliver the response — the file *was* saved, only
+		 * the history row failed. */
+		print_error("Data base error. Failed to save message\n");
+		print_error("Error in file '%s', line:%d in '%s'\n",
+		            __FILE__, __LINE__, __FUNCTION__);
+	}
+
+
+	http_send_built_json(connection, 200, response_json);
+
+	free(response_json);
 	return 1;
 }
 

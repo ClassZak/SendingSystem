@@ -184,12 +184,12 @@ static void* log_addresses_worker(void* arg) {
 
 
 /**
- * Program entry point.
+ * Server session entry point.
  *
  * @return (int) — EXIT_SUCCESS on clean shutdown, EXIT_FAILURE if the
  *         database or the HTTP server cannot be started.
  */
-int main(void) {
+int server() {
 	install_signals();
 	print_pwd();
 

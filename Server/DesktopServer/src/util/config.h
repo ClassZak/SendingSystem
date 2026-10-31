@@ -39,7 +39,7 @@
 /** Listening port for HTTP and (optionally) HTTPS. */
 static uint16_t CONNECTION_PORT = 5000;
 /** Bind address; "0.0.0.0" accepts connections on all interfaces. */
-static const char* CONNECTION_IP = "0.0.0.0";
+static char* CONNECTION_IP = "0.0.0.0";
 
 
 

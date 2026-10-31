@@ -24,4 +24,10 @@
  */
 #pragma once
 
-#include <stdio.h>
+/**
+ * Server session entry point.
+ *
+ * @return (int) — EXIT_SUCCESS on clean shutdown, EXIT_FAILURE if the
+ *         database or the HTTP server cannot be started.
+ */
+int server();

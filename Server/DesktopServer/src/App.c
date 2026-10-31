@@ -27,8 +27,54 @@
 
 #include <stdbool.h>
 
+#include <libterm/libterm.h>
+#include <stdlib.h>
+#include <stdint.h>
+
+#include "PrintProcedures/PrintProcedures.h"
+
+#include "Server.h"
+#include "Client.h"
 
 
 
-/** When true, the binary would run the server; false → client. */
-const bool IS_SERVER = true;
+
+struct arg_params_t {
+	bool is_server;
+	uint16_t connection_port;
+	char* connection_ip;
+};
+
+int parse_commands();
+
+int main(int argc, char** argv) {
+	if (lt_init() != LT_OK) {
+		print_error("Error console UI initialization\n");
+		print_error("Error in file '%s', line:%d in '%s'\n", __FILE__, __LINE__, __FUNCTION__);
+		return EXIT_FAILURE;
+	}
+
+	int x = 2, y = 1;
+	lt_print(x, y, LT_GREEN, LT_DEFAULT, "q to quit");
+	lt_present();
+
+	struct lt_event event;
+	while (lt_poll_event(&event) == LT_OK) {
+		if ((event.type = LT_EVENT_KEY) && (event.ch == 'q')) {
+			break;
+		} else if (event.key == LT_KEY_ARROW_RIGHT) {
+			++x;
+			lt_print(x, y, LT_GREEN, LT_DEFAULT, "q to quit");
+			lt_present();
+		}
+	}
+
+	lt_shutdown();
+
+	if (server() == EXIT_FAILURE) {
+		return EXIT_FAILURE;
+	}
+
+	return EXIT_SUCCESS;
+}
+

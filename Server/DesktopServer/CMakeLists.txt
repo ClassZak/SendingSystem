@@ -45,24 +45,27 @@ set(CMAKE_C_STANDARD_REQUIRED ON)
 # Fetch dependecies
 set(CMAKE_POLICY_VERSION_MINIMUM 3.5)
 include(FetchContent)
-FetchContent_Declare(
-	cJSON
-	GIT_REPOSITORY	https://github.com/DaveGamble/cJSON.git
-	GIT_TAG			v1.7.18 
-)
 
 set(CIVETWEB_BUILD_TESTING OFF CACHE BOOL "" FORCE)
 set(CIVETWEB_ENABLE_SSL_DYNAMIC_LOADING OFF CACHE BOOL "" FORCE)
 set(CIVETWEB_ENABLE_CXX OFF CACHE BOOL "" FORCE)
 set(CIVETWEB_ENABLE_LUA OFF CACHE BOOL "" FORCE)
 set(CIVETWEB_ENABLE_DUKTAPE OFF CACHE BOOL "" FORCE)
-FetchContent_Declare(
-	civetweb
-	GIT_REPOSITORY https://github.com/civetweb/civetweb.git
-	GIT_TAG		v1.16
+FetchContent_Declare(cJSON
+	GIT_REPOSITORY	https://github.com/DaveGamble/cJSON.git
+	GIT_TAG			v1.7.18 
 )
-FetchContent_MakeAvailable(civetweb)
+FetchContent_Declare(civetweb
+	GIT_REPOSITORY	https://github.com/civetweb/civetweb.git
+	GIT_TAG			v1.16
+)
+FetchContent_Declare(libterm
+	GIT_REPOSITORY	https://github.com/rizukirr/libterm.git
+	GIT_TAG			v0.1.2
+)
 FetchContent_MakeAvailable(cJSON)
+FetchContent_MakeAvailable(civetweb)
+FetchContent_MakeAvailable(libterm)
 # Find packeges
 find_package(OpenSSL REQUIRED)
 find_package(SQLite3 REQUIRED)
@@ -80,14 +83,9 @@ add_executable(
 	SendingSystem 
 	${CMAKE_SOURCE_DIR}/src/App.c
 	${CMAKE_SOURCE_DIR}/src/Client.c
-	${CMAKE_SOURCE_DIR}/src/Client.h
 	${CMAKE_SOURCE_DIR}/src/Server.c
-	${CMAKE_SOURCE_DIR}/src/Server.h
-	${CMAKE_SOURCE_DIR}/src/PrintProcedures/PrintProcedures.h
 	${CMAKE_SOURCE_DIR}/src/PrintProcedures/PrintProcedures.c
-	${CMAKE_SOURCE_DIR}/src/FileService/FileService.h
 	${CMAKE_SOURCE_DIR}/src/FileService/FileService.c
-	${CMAKE_SOURCE_DIR}/src/util/config.h
 	${CMAKE_SOURCE_DIR}/src/util/now_timestamp.c
 	${CMAKE_SOURCE_DIR}/src/util/get_server_ip_addresses.c
 	${CMAKE_SOURCE_DIR}/src/util/get_public_ip_http.c
@@ -119,7 +117,7 @@ target_link_libraries(SendingSystem
 	SQLite::SQLite3
 	CURL::libcurl
 	miniupnpc
-
+	Libterm::libterm
 )
 target_include_directories(SendingSystem PRIVATE ${cJSON_SOURCE_DIR})
 get_target_property(SendingSystem_INCLUDES SendingSystem INCLUDE_DIRECTORIES)

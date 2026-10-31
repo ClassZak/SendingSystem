@@ -17,14 +17,18 @@
  *
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
+/**
+ * Build-flag placeholder for a future dual-purpose binary.
+ *
+ * Currently unused: the server and the client build as separate
+ * executables. Reserved for the moment when a single binary picks its
+ * role at startup.
+ */
+
 #include <stdbool.h>
 
 
+
+
+/** When true, the binary would run the server; false → client. */
 const bool IS_SERVER = true;
-
-
-
-
-
-
-

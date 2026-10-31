@@ -18,8 +18,7 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 /**
- * @file    get_public_ip_upnp.c
- * @brief   UPnP IGD discovery of the public IP address.
+ * UPnP IGD discovery of the public IP address.
  *
  * ── How it works ──────────────────────────────────────────────────────
  *

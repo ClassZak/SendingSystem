@@ -17,7 +17,24 @@
  *
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
+/**
+ * POST /api/upload — multipart file upload endpoint.
+ *
+ * Streams each part to SAVE_DIR/<sanitized>; memory usage is
+ * independent of file size.
+ */
 #pragma once
+
 #include <civetweb.h>
 
+
+
+
+/**
+ * Handles POST /api/upload.
+ *
+ * @param conn   (struct mg_connection*, Required) — CivetWeb connection.
+ * @param cbdata (void*, Optional) — unused.
+ * @return (int) — always 1.
+ */
 int api_upload_handler(struct mg_connection* conn, void* cbdata);

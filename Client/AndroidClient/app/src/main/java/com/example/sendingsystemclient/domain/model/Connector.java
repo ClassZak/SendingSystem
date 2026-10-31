@@ -36,75 +36,78 @@ import okhttp3.ResponseBody;
 import okio.BufferedSink;
 
 /**
- * @brief HTTP client for the SendingSystem server.
+ * HTTP client for the SendingSystem server.
  *
- * @details Routes the payload based on {@link #sendingType}:
- * <ul>
- *   <li>{@link SendingType#FILE} → {@code POST /api/upload}
- *       ({@code multipart/form-data}); the file is streamed from a
- *       {@link Uri} so it is never fully loaded into memory.</li>
- *   <li>All other types          → {@code POST /api/send} (JSON).</li>
- * </ul>
+ * Routes the payload based on sendingType:
+ *   - SendingType.FILE → POST /api/upload (multipart/form-data); the
+ *     file is streamed from a Uri so it is never fully loaded into
+ *     memory.
+ *   - All other types → POST /api/send (JSON).
  *
- * Upload progress can be observed through {@link ProgressListener}.
- * TLS trust policy is selected via {@link TrustMode}.
+ * Upload progress can be observed through ProgressListener. TLS trust
+ * policy is selected via TrustMode.
  *
- * @warning {@link TrustMode#TRUST_ALL} disables certificate validation and
- *          should only be used with a self-signed development server.
+ * Warning: TrustMode.TRUST_ALL disables certificate validation and
+ * should only be used with a self-signed development server.
  *
  * @see SendDataViewModel
- * @since 1.0
  */
 public class Connector {
 
     /**
-     * @brief Upload progress callback.
+     * Upload progress callback.
      *
-     * @details Invoked from OkHttp's IO thread — callers that touch UI
-     *          must marshal to the main thread themselves.
-     *
-     * @field bytesWritten Bytes handed to the socket so far.
-     * @field totalBytes   Total payload size, or {@code -1} if unknown.
+     * Invoked from OkHttp's IO thread — callers that touch UI must
+     * marshal to the main thread themselves.
      */
     public interface ProgressListener {
+        /**
+         * Called after each chunk is written to the socket.
+         *
+         * @param bytesWritten (long, Required) — bytes handed to the
+         *                     socket so far.
+         * @param totalBytes   (long, Required) — total payload size, or
+         *                     -1 if unknown.
+         */
         void onProgress(long bytesWritten, long totalBytes);
     }
 
     /**
-     * @brief TLS trust policy.
+     * TLS trust policy.
      */
     public enum TrustMode {
-        /** @brief Accept any certificate. <b>Development only.</b> */
+        /** Accept any certificate. Development only. */
         TRUST_ALL,
-        /** @brief Use the platform CA store. Recommended for production. */
+        /** Use the platform CA store. Recommended for production. */
         SYSTEM_CA,
         /**
-         * @brief Accept any certificate but pin the server SPKI by SHA-256.
-         * @details Protects against other MITM certs; useful with
-         *          self-signed certs in a closed network.
+         * Accept any certificate but pin the server SPKI by SHA-256.
+         *
+         * Protects against other MITM certs; useful with self-signed
+         * certs in a closed network.
          */
         PINNED
     }
 
-    /** @brief Connect/read/write timeout in milliseconds. */
+    /** Connect/read/write timeout in milliseconds. */
     private static final int TIMEOUT_MS   = 30_000;
-    /** @brief Chunk size used when streaming file bodies. */
+    /** Chunk size used when streaming file bodies. */
     private static final int UPLOAD_CHUNK = 16 * 1024;
 
     // ===== Server configuration =====
-    /** @brief IP protocol to validate {@link #serverIp} against. */
+    /** IP protocol to validate serverIp against. */
     public IPVersion ipVersion = IPVersion.IPv4;
-    /** @brief Server address (hostname or IP literal). */
+    /** Server address (hostname or IP literal). */
     public String    serverIp   = "127.0.0.1";
-    /** @brief Server port (1–65535). */
+    /** Server port (1–65535). */
     public int       serverPort = 5000;
-    /** @brief Use HTTPS/WSS when {@code true}. */
+    /** Use HTTPS/WSS when true. */
     public boolean   isSSLEncryptEnabled = false;
 
     // ===== Payload =====
-    /** @brief Data for {@code RAW_DATA} mode. Ignored for {@code FILE}. */
+    /** Data for RAW_DATA mode. Ignored for FILE. */
     public String      sendingData = "";
-    /** @brief Selects the endpoint and body encoding. */
+    /** Selects the endpoint and body encoding. */
     public SendingType sendingType = SendingType.RAW_DATA;
 
     @Nullable private String          saveToPath       = null;
@@ -128,20 +131,28 @@ public class Connector {
     // ===== Setters =====
 
     /**
-     * @brief Sets the file name under which the server should save the payload.
-     * @param saveToPath Raw name; passed through {@link #sanitizeFilename}.
+     * Sets the file name under which the server should save the payload.
+     *
+     * @param saveToPath (String, Required) — raw name; passed through
+     *                   sanitizeFilename.
      */
     public void setSaveToPath(String saveToPath) {
         this.saveToPath = sanitizeFilename(saveToPath);
     }
 
-    /** @brief @return The sanitised file name, or {@code null}. */
+    /**
+     * @return (String) — sanitised file name, or null.
+     */
     @Nullable
     public String getSaveToPath() { return saveToPath; }
 
     /**
-     * @brief Supplies the file content as an in-memory array.
-     * @note  Prefer {@link #setFileUri} for anything above a few MB.
+     * Supplies the file content as an in-memory array.
+     *
+     * Prefer setFileUri for anything above a few MB.
+     *
+     * @param data (byte[], Optional) — file bytes; may be null.
+     * @param name (String, Optional) — suggested name.
      */
     public void setFileBytes(@Nullable byte[] data, @Nullable String name) {
         this.fileBytes = data;
@@ -150,11 +161,12 @@ public class Connector {
     }
 
     /**
-     * @brief Supplies the file as a {@link Uri} to be streamed.
-     * @param cr   Resolver used to open the stream.
-     * @param uri  Content URI; must grant read access for the lifetime
-     *             of the upload.
-     * @param name Suggested file name; used as multipart filename.
+     * Supplies the file as a Uri to be streamed.
+     *
+     * @param cr   (ContentResolver, Required) — resolver used to open the stream.
+     * @param uri  (Uri, Required) — content URI; must grant read access
+     *             for the lifetime of the upload.
+     * @param name (String, Optional) — suggested multipart filename.
      */
     public void setFileUri(@NonNull ContentResolver cr,
                            @NonNull Uri uri,
@@ -165,37 +177,52 @@ public class Connector {
         this.fileName = name;
     }
 
-    /** @brief Clears any previously set file source. */
+    /**
+     * Clears any previously set file source.
+     */
     public void clearFile() {
         this.fileBytes = null;
         this.fileUri = null;
         this.fileName = null;
     }
 
-    /** @brief Sets (or clears) the upload progress listener. */
+    /**
+     * Sets or clears the upload progress listener.
+     *
+     * @param l (ProgressListener, Optional) — null clears the listener.
+     */
     public void setProgressListener(@Nullable ProgressListener l) {
         this.progressListener = l;
     }
 
-    /** @brief Selects the TLS trust policy. */
+    /**
+     * Selects the TLS trust policy.
+     *
+     * @param mode (TrustMode, Required) — new policy.
+     */
     public void setTrustMode(@NonNull TrustMode mode) { this.trustMode = mode; }
 
-    /** @brief SHA-256 (base64) of the server SPKI; required for {@link TrustMode#PINNED}. */
+    /**
+     * Sets the SHA-256 SPKI pin used by TrustMode.PINNED.
+     *
+     * @param pin (String, Optional) — base64 SHA-256; null disables pinning.
+     */
     public void setPinnedSha256(@Nullable String pin) { this.pinnedSha256 = pin; }
 
-    /** @brief @return {@code true} while a request is in flight. */
+    /**
+     * @return (boolean) — true while a request is in flight.
+     */
     public boolean getIsSending() { return isSending; }
 
     // ===== Entry point =====
 
     /**
-     * @brief Performs one send operation.
+     * Performs one send operation.
      *
-     * @details Synchronous — callers must run this off the UI thread.
+     * Synchronous — callers must run this off the UI thread.
      *
-     * @return Raw JSON body of the server response, or {@code null}.
-     *         Parse with {@code ServerResponse.fromJson}.
-     *
+     * @return (String) — raw JSON body of the server response, or null.
+     *         Parse with ServerResponse.fromJson.
      * @throws Exception on validation, network or TLS failure.
      */
     @Nullable
@@ -213,11 +240,14 @@ public class Connector {
     // ===== JSON path =====
 
     /**
-     * @brief Builds and posts a JSON body to {@code /api/send}.
+     * Builds and posts a JSON body to /api/send.
+     *
+     * The body contains only "data" and (optionally) "saveToPath". The
+     * message type is implied by the endpoint itself, so no "type"
+     * field is sent.
      */
     private String sendJsonMessage() throws Exception {
         JSONObject json = new JSONObject();
-        json.put("type", sendingType.toString());
         json.put("data", sendingData);
         if (saveToPath != null && !saveToPath.isEmpty()) {
             json.put("saveToPath", saveToPath);
@@ -238,7 +268,7 @@ public class Connector {
     // ===== File upload path =====
 
     /**
-     * @brief Builds a multipart body and posts it to {@code /api/upload}.
+     * Builds a multipart body and posts it to /api/upload.
      */
     private String uploadFile() throws Exception {
         if (fileBytes == null && fileUri == null) {
@@ -263,12 +293,11 @@ public class Connector {
     }
 
     /**
-     * @brief Returns a {@link RequestBody} that streams the file chunk by chunk.
+     * Returns a RequestBody that streams the file chunk by chunk.
      *
-     * @details Uses {@link #fileBytes} if set, otherwise opens {@link #fileUri}
-     *          through {@link #contentResolver}. Memory usage is O(chunk size),
-     *          independent of the file size. Calls {@link ProgressListener}
-     *          after every chunk.
+     * Uses fileBytes if set, otherwise opens fileUri through
+     * contentResolver. Memory usage is O(chunk size), independent of
+     * the file size. Calls ProgressListener after every chunk.
      */
     private RequestBody buildFileBody() {
         return new RequestBody() {
@@ -314,11 +343,23 @@ public class Connector {
         };
     }
 
+    /**
+     * Forwards a progress event to the current listener, if any.
+     *
+     * @param written (long, Required) — bytes sent so far.
+     * @param total   (long, Required) — total bytes, or -1 if unknown.
+     */
     private void notifyProgress(long written, long total) {
         ProgressListener l = progressListener;
         if (l != null) l.onProgress(written, total);
     }
 
+    /**
+     * Queries OpenableColumns.SIZE for the given URI.
+     *
+     * @param uri (Uri, Optional) — content URI; null is safe.
+     * @return (Long) — size in bytes, or null if unavailable.
+     */
     @Nullable
     private Long queryUriSize(@Nullable Uri uri) {
         if (uri == null || contentResolver == null) return null;
@@ -335,12 +376,16 @@ public class Connector {
     // ===== HTTP execution =====
 
     /**
-     * @brief Executes the request and returns the raw response body.
+     * Executes the request and returns the raw response body.
      *
-     * @details On non-2xx responses without a body, throws {@link IOException}
-     *          carrying the status code. If the server sent a JSON error
-     *          body (as CivetWeb does), it is returned unchanged so the
-     *          caller can parse it with {@code ServerResponse}.
+     * On non-2xx responses without a body, throws IOException carrying
+     * the status code. If the server sent a JSON error body (as
+     * CivetWeb does), it is returned unchanged so the caller can parse
+     * it with ServerResponse.
+     *
+     * @param request (Request, Required) — prepared OkHttp request.
+     * @return (String) — raw response body.
+     * @throws IOException on network failure or empty non-2xx response.
      */
     private String execute(Request request) throws Exception {
         try (Response resp = client().newCall(request).execute()) {
@@ -353,6 +398,12 @@ public class Connector {
         }
     }
 
+    /**
+     * Builds the request URL for the given path.
+     *
+     * @param path (String, Required) — endpoint path, e.g. "/api/send".
+     * @return (String) — full URL.
+     */
     private String baseUrl(String path) {
         String scheme = isSSLEncryptEnabled ? "https" : "http";
         return scheme + "://" + serverIp + ":" + serverPort + path;
@@ -361,14 +412,13 @@ public class Connector {
     // ===== OkHttp client (lazy, invalidated on config change) =====
 
     /**
-     * @brief Returns an {@link OkHttpClient} matching the current TLS config.
+     * Returns an OkHttpClient matching the current TLS config.
      *
-     * @details The client is cached and rebuilt only when any of
-     *          {@link #isSSLEncryptEnabled}, {@link #trustMode} or
-     *          {@link #pinnedSha256} changes.
+     * The client is cached and rebuilt only when any of
+     * isSSLEncryptEnabled, trustMode or pinnedSha256 changes.
      *
-     * @throws IllegalArgumentException if {@link TrustMode#PINNED} is used
-     *         without a pin.
+     * @return (OkHttpClient) — ready client.
+     * @throws IllegalArgumentException if PINNED is used without a pin.
      */
     private OkHttpClient client() throws Exception {
         if (cachedClient != null
@@ -422,6 +472,12 @@ public class Connector {
         return cachedClient;
     }
 
+    /**
+     * Builds an X509TrustManager that accepts any certificate.
+     *
+     * Used internally by TRUST_ALL and PINNED; never exposed to the
+     * caller.
+     */
     private static X509TrustManager trustAllManager() {
         return new X509TrustManager() {
             @Override public void checkClientTrusted(X509Certificate[] c, String a) { }
@@ -433,15 +489,15 @@ public class Connector {
     // ===== Validation helpers =====
 
     /**
-     * @brief Sanitises a user-supplied filename.
+     * Sanitises a user-supplied filename.
      *
-     * @details Replaces every character outside `[A-Za-z0-9._-]` with `_`,
-     *          collapses `..` sequences and strips a leading dot.
-     *          Mirrors the server-side `sanitize_filename` so the name
-     *          arriving at the server matches what the user expects.
+     * Replaces every character outside [A-Za-z0-9._-] with "_",
+     * collapses ".." sequences and strips a leading dot. Mirrors the
+     * server-side sanitize_filename so the name arriving at the server
+     * matches what the user expects.
      *
-     * @param input Raw name. May be {@code null}.
-     * @return Safe name, or `"unnamed.dat"` if the result is empty.
+     * @param input (String, Optional) — raw name; null is safe.
+     * @return (String) — safe name, or "unnamed.dat" if the result is empty.
      */
     public static String sanitizeFilename(String input) {
         if (input == null || input.isEmpty()) return "";
@@ -452,12 +508,12 @@ public class Connector {
     }
 
     /**
-     * @brief Checks that {@code ip} parses and matches the requested family.
+     * Checks that ip parses and matches the requested family.
      *
-     * @param ip      Hostname or IP literal.
-     * @param version Expected {@link IPVersion}.
-     * @return {@code true} if {@code ip} resolves to an address of the
-     *         requested family, {@code false} otherwise.
+     * @param ip      (String, Required) — hostname or IP literal.
+     * @param version (IPVersion, Required) — expected family.
+     * @return (boolean) — true if ip resolves to an address of the
+     *         requested family, false otherwise.
      */
     public static boolean isValidInetAddress(String ip, IPVersion version) {
         try {

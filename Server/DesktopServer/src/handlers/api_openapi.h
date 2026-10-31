@@ -17,14 +17,21 @@
  *
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
+/**
+ * GET /api/openapi.json — OpenAPI 3.1 description of the public API.
+ */
 #pragma once
-#include <stddef.h>
+
+#include <civetweb.h>
 
 
-typedef struct connection_t {
-	size_t (*read)(void* ctx, void* buf, size_t len);
-	size_t (*write)(void* ctx, void* buf, size_t len);
-	void (*close)(void* ctx);
-	int (*init)(void* ctx);
-	void* ctx;
-} connection_t;
+
+
+/**
+ * Handles GET /api/openapi.json — returns the OpenAPI document.
+ *
+ * @param connection    (struct mg_connection*, Required) — live connection.
+ * @param callback_data (void*, Optional) — unused.
+ * @return (int) — always 1.
+ */
+int api_openapi_handler(struct mg_connection* connection, void* callback_data);

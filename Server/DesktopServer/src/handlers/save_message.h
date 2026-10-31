@@ -17,9 +17,18 @@
  *
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
+/**
+ * Saves message to database.
+ */
 #pragma once
-#include <stdint.h>
-#include <string.h>
 
-int base64_decode(const char* in, unsigned char* out, int out_len);
+#include "../database/model/database_models.h"
 
+
+
+/**
+ * Saves new message to data base
+ * Any - Ok
+ * -1 - Failed
+ * */
+DB_ID save_message(const Message* message);

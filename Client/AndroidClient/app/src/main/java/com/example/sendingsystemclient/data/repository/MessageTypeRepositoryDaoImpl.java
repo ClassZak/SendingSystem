@@ -1,12 +1,11 @@
 package com.example.sendingsystemclient.data.repository;
 
 import com.example.sendingsystemclient.data.model.MessageType;
-import com.example.sendingsystemclient.data.source.MessageDao;
 import com.example.sendingsystemclient.data.source.MessageTypeDao;
 
-import java.util.Collections;
 import java.util.List;
 
+/** Repository implementation backed by a Room DAO. */
 public class MessageTypeRepositoryDaoImpl implements MessageTypeRepository {
     private final MessageTypeDao dao;
     public MessageTypeRepositoryDaoImpl(MessageTypeDao dao) {

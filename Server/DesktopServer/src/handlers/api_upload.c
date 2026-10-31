@@ -17,37 +17,80 @@
  *
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
+/**
+ * POST /api/upload — stream multipart file uploads to disk.
+ *
+ * Each file part is written directly to SAVE_DIR/<sanitized_name>
+ * without buffering the whole file in memory.
+ */
+
 #include "api_upload.h"
 #include "http_json.h"
+#include "save_connection.h"
+#include "save_message.h"
+
 #include "../util/config.h"
+#include "../util/now_timestamp.h"
 #include "../FileService/FileService.h"
 #include "../PrintProcedures/PrintProcedures.h"
+
+#include "../database/model/database_models.h"
+#include "../database/model/database_enums.h"
+#include "../database/database_config.h"
+#include "../database/message_repository.h"
+
 
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
 #include <pthread.h>
+#include <time.h>
 #ifdef _WIN32
 #include <direct.h>
 #else
 #include <sys/stat.h>
 #endif
 
+
+
+
 extern pthread_mutex_t mtx_print;
 extern pthread_mutex_t mtx_fprint;
 
+
+
+
+/** Per-request state shared between CivetWeb's form callbacks. */
 typedef struct {
-	FILE	* fp;
-	char	  path[MAX_FILENAME + SAVE_DIR_LENGTH + 2];
-	long long size;
+	FILE*     fp;                                        /**< Open file or NULL. */
+	char      path[MAX_FILENAME + SAVE_DIR_LENGTH + 2];  /**< Current path. */
+	long long size;                                      /**< Bytes written. */
 } upload_ctx_t;
 
+
+
+
+/**
+ * Called by CivetWeb for each form field.
+ *
+ * For file parts (non-empty filename) opens the destination and
+ * returns MG_FORM_FIELD_STORAGE_STORE. For plain fields returns
+ * MG_FORM_FIELD_STORAGE_GET.
+ *
+ * @param key       (const char*, Required) — field name.
+ * @param filename  (const char*, Required) — original filename.
+ * @param path      (char*, Required) — destination buffer.
+ * @param pathlen   (size_t, Required) — capacity of path.
+ * @param user_data (void*, Required) — upload_ctx_t pointer.
+ * @return (int) — one of MG_FORM_FIELD_STORAGE_*.
+ */
 static int on_field_found(const char* key, const char* filename,
-						  char* path, size_t pathlen, void* user_data) {
-	(void)key;
+                          char* path, size_t pathlen, void* user_data) {
 	upload_ctx_t* u = user_data;
 
-	if (!filename || !filename[0]) return MG_FORM_FIELD_STORAGE_GET;
+	if (!filename || !filename[0]) {
+		return MG_FORM_FIELD_STORAGE_GET;
+	}
 
 	char safe_name[MAX_FILENAME + 1];
 	sanitize_filename(safe_name, sizeof(safe_name), filename);
@@ -68,39 +111,78 @@ static int on_field_found(const char* key, const char* filename,
 
 	if (!u->fp) {
 		print_error("Cannot open %s for write\n", path);
-
+		print_error("Error in file '%s', line:%d in '%s'\n",
+		            __FILE__, __LINE__, __FUNCTION__);
 		return MG_FORM_FIELD_STORAGE_ABORT;
 	}
+
 	print_info("[UPLOAD] Receiving %s\n", path);
 
 	return MG_FORM_FIELD_STORAGE_STORE;
 }
 
-static int on_field_get(const char* key, const char* value,
-						size_t valuelen, void* user_data) {
-	(void)key; (void)value; (void)valuelen; (void)user_data;
 
+
+
+/**
+ * Called for plain (non-file) form fields. Currently ignored.
+ *
+ * @param key       (const char*, Required) — field name.
+ * @param value     (const char*, Required) — field value.
+ * @param valuelen  (size_t, Required) — value length.
+ * @param user_data (void*, Required) — upload_ctx_t pointer.
+ * @return (int) — always 0.
+ */
+static int on_field_get(const char* key, const char* value,
+                        size_t valuelen, void* user_data) {
 	return 0;
 }
 
+
+
+
+/**
+ * Called after a file part is fully written.
+ *
+ * Closes the file, resets the state and logs the total size.
+ *
+ * @param path      (const char*, Required) — saved path.
+ * @param size      (long long, Required) — file size.
+ * @param user_data (void*, Required) — upload_ctx_t pointer.
+ * @return (int) — always 0.
+ */
 static int on_field_store(const char* path, long long size, void* user_data) {
 	upload_ctx_t* u = user_data;
+
 	if (u->fp) {
 		pthread_mutex_lock(&mtx_fprint);
 		fclose(u->fp);
 		pthread_mutex_unlock(&mtx_fprint);
 		u->fp = NULL;
 	}
+
 	print_info("[UPLOAD] Stored %s (%lld bytes)\n", path, size);
 
 	return 0;
 }
 
-int api_upload_handler(struct mg_connection* conn, void* cbdata) {
-	(void)cbdata;
-	const struct mg_request_info* ri = mg_get_request_info(conn);
-	if (strcmp(ri->request_method, "POST") != 0) {
-		http_send_error(conn, 405, "POST required");
+
+
+
+/**
+ * Handles POST /api/upload.
+ *
+ * @param connection    (struct mg_connection*, Required) — CivetWeb connection.
+ * @param callback_data (void*, Optional) — unused.
+ * @return (int) — always 1.
+ */
+int api_upload_handler(struct mg_connection* connection, void* callback_data) {
+	const struct mg_request_info* request_info =
+		mg_get_request_info(connection);
+
+	/* Validate method before touching the database. */
+	if (strcmp(request_info->request_method, "POST") != 0) {
+		http_send_error(connection, 405, "POST required");
 		return 1;
 	}
 
@@ -111,12 +193,66 @@ int api_upload_handler(struct mg_connection* conn, void* cbdata) {
 	fdh.field_store = on_field_store;
 	fdh.user_data   = &u;
 
-	int fields = mg_handle_form_request(conn, &fdh);
-	if (u.fp) { fclose(u.fp); u.fp = NULL; }
+	int fields = mg_handle_form_request(connection, &fdh);
 
-	if (fields < 0) http_send_error(conn, 400, "Form parse error");
-	else			http_send_json (conn, 200, "message", "File(s) received");
+	if (u.fp) {
+		fclose(u.fp);
+		u.fp = NULL;
+	}
 
+
+	if (fields < 0) {
+		http_send_error(connection, 400, "Form parse error");
+		return 1;
+	}
+
+
+	/* The contract says /api/upload must carry at least one file part. */
+	if (u.path[0] == '\0') {
+		http_send_error(connection, 400, "No file part");
+		return 1;
+	}
+
+
+	DB_ID connection_id = save_connection(connection);
+	if (connection_id == -1) {
+		http_send_error(connection, 500, "Data base error");
+		print_error("Data base error. Failed to save connection\n");
+		print_error("Error in file '%s', line:%d in '%s'\n",
+		            __FILE__, __LINE__, __FUNCTION__);
+		return 1;
+	}
+
+
+	char* response_json = http_build_json("message", "File(s) received");
+
+	char sending_time[32];
+	now_timestamp(sending_time, sizeof(sending_time));
+
+	Message message;
+	memset(&message, 0, sizeof(message));
+	message.connection_id     = connection_id;
+	message.message_status_id = MESSAGE_STATUS_SUCCESS;
+	message.message_type_id   = MESSAGE_TYPE_FILE;
+	message.direction_id      = MESSAGE_DIRECTION_INBOUND;
+	message.request           = u.path;
+	message.response          = response_json;
+	message.sending_time      = sending_time;
+
+
+	DB_ID message_id = save_message(&message);
+	if (message_id == -1) {
+		/* Still deliver the response — the file *was* saved, only
+		 * the history row failed. */
+		print_error("Data base error. Failed to save message\n");
+		print_error("Error in file '%s', line:%d in '%s'\n",
+		            __FILE__, __LINE__, __FUNCTION__);
+	}
+
+
+	http_send_built_json(connection, 200, response_json);
+
+	free(response_json);
 	return 1;
 }
 

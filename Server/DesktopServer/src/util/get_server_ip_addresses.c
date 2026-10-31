@@ -18,9 +18,8 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 /**
- * @file    get_server_ip_addresses.c
- * @brief   Enumerates every distinct subnet attached to the host and
- *          returns one IP address per subnet.
+ * Enumerates every distinct subnet attached to the host and
+ * returns one IP address per subnet.
  *
  * ── Algorithm ─────────────────────────────────────────────────────────
  *
@@ -472,3 +471,4 @@ void free_server_ip_addresses(char** ips, int count) {
 
 	free(ips);
 }
+

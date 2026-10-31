@@ -17,9 +17,17 @@
  *
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
+/**
+ * Coloured console output helpers.
+ *
+ * Only PrintProcedures.c calls fprintf/printf directly; every other
+ * module must use these functions. In threaded contexts, hold
+ * mtx_print around the call.
+ */
 #pragma once
-// ANSI colors
 
+/* ANSI colours — Windows needs SetConsoleTextAttribute, POSIX uses
+ * ANSI escape sequences. */
 #ifdef _WIN32
 #include <windows.h>
 #endif
@@ -27,10 +35,10 @@
 
 #ifdef _WIN32
 
-#define FOREGROUND_DEFAULT	(FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE)  // white
+#define FOREGROUND_DEFAULT	(FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE)
 #define RED_COLOR			FOREGROUND_RED
 #define GREEN_COLOR			FOREGROUND_GREEN
-#define YELLOW_COLOR		0xE  // FOREGROUND_RED | FOREGROUND_GREEN
+#define YELLOW_COLOR		0xE
 #define RESET_COLOR			FOREGROUND_DEFAULT
 
 #else
@@ -42,12 +50,42 @@
 
 #endif
 
+
 #include <stdarg.h>
 #include <stdio.h>
 
 
-void print_error	(const char* format, ...);
-void print_success	(const char* format, ...);
-void print_info		(const char* format, ...);
 
 
+/**
+ * Prints an error message to stderr in red.
+ *
+ * On POSIX appends `\nCode: <errno>\t<strerror>`; on Windows appends
+ * `\nCode : <GetLastError()>`.
+ *
+ * @param format (const char*, Required) — printf-style format string.
+ * @param ...    (varargs, Required)    — format arguments.
+ */
+void print_error(const char* format, ...);
+
+
+
+
+/**
+ * Prints a success message to stdout in green.
+ *
+ * @param format (const char*, Required) — printf-style format string.
+ * @param ...    (varargs, Required)    — format arguments.
+ */
+void print_success(const char* format, ...);
+
+
+
+
+/**
+ * Prints an informational message to stdout in yellow.
+ *
+ * @param format (const char*, Required) — printf-style format string.
+ * @param ...    (varargs, Required)    — format arguments.
+ */
+void print_info(const char* format, ...);

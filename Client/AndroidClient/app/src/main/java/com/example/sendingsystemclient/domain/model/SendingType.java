@@ -1,5 +1,6 @@
 package com.example.sendingsystemclient.domain.model;
 
+/** Send operation kinds; selects the endpoint in Connector. */
 public enum SendingType {
     RAW_DATA (1),
     FILE (2);

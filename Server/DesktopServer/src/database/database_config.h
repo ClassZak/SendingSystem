@@ -17,7 +17,25 @@
  *
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
+/**
+ * Database path and row-id type.
+ */
 #pragma once
+
+
+
+
+/**
+ * Row identifier. SQLite rowid is 64-bit. On LP64 (Linux, macOS) long
+ * matches; on Windows 64-bit long is 32-bit — switch to int64_t
+ * (<stdint.h>) if you build the server there.
+ */
+typedef long DB_ID;
+
+
+
+
+/** Path to the SQLite database file. */
 static const char* DATABASE_FILENAME = "SendingSystem.db";
+/** Path to the SQL schema script applied on startup. */
 static const char* CREATE_DATABASE_FILE = "CreateDatabase.sql";
-#define DB_ID long

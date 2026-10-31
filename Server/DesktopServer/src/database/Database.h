@@ -17,11 +17,34 @@
  *
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
+/**
+ * SQLite database lifecycle.
+ */
 #pragma once
 
 #include <sqlite3.h>
 
 
-int create_database();
+
+
+/**
+ * Opens (or creates) the database and applies the schema.
+ * Print errors
+ *
+ * @param filename (const char*, Required) — SQLite file path.
+ * @param out_db   (sqlite3**, Required) — receives the open handle.
+ * @return (int) — 0 on success; -1 on any failure.
+ *
+ * @note Caller owns the handle; release with database_close.
+ */
 int database_open(const char* filename, sqlite3** out_db);
+
+
+
+
+/**
+ * Closes a handle returned by database_open.
+ *
+ * @param db (sqlite3*, Optional) — handle; NULL is safe.
+ */
 void database_close(sqlite3* db);

@@ -18,23 +18,21 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 /**
- * @file    get_public_ip_http.h
- * @brief   Obtains the public IP address by querying an external
- *          HTTPS service.
+ * Obtains the public IP address by querying an external HTTPS service.
  *
- * Requires libcurl (-lcurl). Unlike the CivetWeb client, libcurl
- * handles DNS, TLS, redirects and timeouts out of the box, so this is
- * the fallback when UPnP is unavailable.
+ * Requires libcurl (-lcurl). libcurl handles DNS, TLS, redirects and
+ * timeouts out of the box, so this is the fallback when UPnP is
+ * unavailable.
  */
-
 #pragma once
 
+
+
+
 /**
- * @brief Queries https://api.ipify.org for the caller's public IP.
+ * Fetches the caller's public IP from https://api.ipify.org.
  *
- * @return Heap-allocated NUL-terminated string on success, NULL on
- *         network error, timeout (5 s), or malformed response.
- *
- * @note Release the result with free().
+ * @return (char*) — heap NUL-terminated IP string, or NULL on network
+ *         error, timeout (5 s), or empty response. Caller frees.
  */
 char* get_public_ip_http(void);

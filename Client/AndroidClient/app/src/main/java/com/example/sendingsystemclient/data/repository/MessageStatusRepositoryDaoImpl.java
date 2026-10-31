@@ -7,6 +7,7 @@ import com.example.sendingsystemclient.data.source.MessageStatusDao;
 import java.util.Collections;
 import java.util.List;
 
+/** Repository implementation backed by a Room DAO. */
 public class MessageStatusRepositoryDaoImpl implements MessageStatusRepository {
     private final MessageStatusDao dao;
     public MessageStatusRepositoryDaoImpl(MessageStatusDao dao) {

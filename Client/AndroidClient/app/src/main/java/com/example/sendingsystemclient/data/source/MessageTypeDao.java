@@ -8,12 +8,13 @@ import com.example.sendingsystemclient.data.model.MessageType;
 
 import java.util.List;
 
+/** Room DAO for the MessageType table. */
 @Dao
 public interface MessageTypeDao {
     @Insert
     void insert(MessageType messageType);
     @Insert
-    void insertALL(List<MessageType> list);
+    void insertAll(List<MessageType> list);
 
     @Query("SELECT * FROM MessageType")
     List<MessageType> getAll();

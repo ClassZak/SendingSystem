@@ -4,6 +4,7 @@ import com.example.sendingsystemclient.data.model.NamedConnection;
 
 import java.util.List;
 
+/** Repository interface for NamedConnection rows. */
 public interface NamedConnectionRepository {
     List<NamedConnection> getAll();
     NamedConnection getById(int id);

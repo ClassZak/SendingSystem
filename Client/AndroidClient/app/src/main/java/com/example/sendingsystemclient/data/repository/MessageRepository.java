@@ -4,6 +4,7 @@ import com.example.sendingsystemclient.data.model.Message;
 
 import java.util.List;
 
+/** Repository interface for Message rows. */
 public interface MessageRepository {
     void insert(Message message);
     List<Message> getAll();

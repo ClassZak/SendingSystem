@@ -17,9 +17,23 @@
  *
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
+/**
+ * Saves connection to database.
+ * Uses static variables from config.h
+ */
 #pragma once
-#include "config.h"
 
-SOCKET* setup_socket(	int af, int type, int protocol,
-						struct sockaddr_in* server_addr,
-						const char* ip, unsigned short port);
+#include <civetweb.h>
+
+
+#include "../database/database_config.h"
+
+
+
+
+/**
+ * Saves new connection to data base
+ * Any - Ok
+ * -1 - Failed
+ * */
+DB_ID save_connection(struct mg_connection* conn);

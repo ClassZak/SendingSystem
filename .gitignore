@@ -40,4 +40,4 @@ server.pem
 
 
 #Data base
-SendingSystem.db
+SendingSystem.db*

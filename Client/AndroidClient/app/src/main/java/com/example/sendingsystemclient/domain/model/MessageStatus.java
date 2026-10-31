@@ -1,5 +1,6 @@
 package com.example.sendingsystemclient.domain.model;
 
+/** Message statuses; index() maps to the MessageStatus table ids. */
 public enum MessageStatus {
     SUCCESS (1),
     FAILED (2);

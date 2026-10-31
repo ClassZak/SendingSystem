@@ -57,9 +57,9 @@
 
 
 /** Serialises all writes to stdout/stderr from worker threads. */
-pthread_mutex_t mtx_print  = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t mutex_print  = PTHREAD_MUTEX_INITIALIZER;
 /** Serialises all writes to the file system. */
-pthread_mutex_t mtx_fprint = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t mutex_fprint = PTHREAD_MUTEX_INITIALIZER;
 /** Set to 0 by the signal handler to stop the accept loop. */
 volatile sig_atomic_t keep_running = 1;
 

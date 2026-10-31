@@ -51,8 +51,8 @@
 
 
 
-extern pthread_mutex_t mtx_print;
-extern pthread_mutex_t mtx_fprint;
+extern pthread_mutex_t mutex_print;
+extern pthread_mutex_t mutex_fprint;
 
 
 
@@ -76,22 +76,22 @@ static int save_text_to_file(const char* data, const char* save_to_path,
 	char safe_name[MAX_FILENAME + 1];
 	sanitize_filename(safe_name, sizeof(safe_name), save_to_path);
 
-	pthread_mutex_lock(&mtx_fprint);
+	pthread_mutex_lock(&mutex_fprint);
 #ifdef _WIN32
 	_mkdir(SAVE_DIR);
 #else
 	mkdir(SAVE_DIR, 0755);
 #endif
-	pthread_mutex_unlock(&mtx_fprint);
+	pthread_mutex_unlock(&mutex_fprint);
 
 
 	char full_path[MAX_FILENAME + SAVE_DIR_LENGTH + 2];
 	snprintf(full_path, sizeof(full_path), "%s/%s", SAVE_DIR, safe_name);
 
-	pthread_mutex_lock(&mtx_fprint);
+	pthread_mutex_lock(&mutex_fprint);
 	FILE* f = fopen(full_path, "wb");
 	if (!f) {
-		pthread_mutex_unlock(&mtx_fprint);
+		pthread_mutex_unlock(&mutex_fprint);
 		print_error("Cannot open %s\n", full_path);
 		print_error("Error in file '%s', line:%d in '%s'\n",
 		            __FILE__, __LINE__, __FUNCTION__);
@@ -101,7 +101,7 @@ static int save_text_to_file(const char* data, const char* save_to_path,
 	int written = (int)strlen(data);
 	fputs(data, f);
 	fclose(f);
-	pthread_mutex_unlock(&mtx_fprint);
+	pthread_mutex_unlock(&mutex_fprint);
 
 	print_info("[RAW_DATA] saved to %s (%d bytes)\n", full_path, written);
 
@@ -177,7 +177,7 @@ int api_send_handler(struct mg_connection* connection, void* callback_data) {
 		return 1;
 	}
 
-	long long bytes_read = mg_read(connection, body, (size_t)content_length);
+	int bytes_read = mg_read(connection, body, (size_t)content_length);
 	if (bytes_read != content_length) {
 		free(body);
 		http_send_error(connection, 400, "Incomplete body");
@@ -213,9 +213,9 @@ int api_send_handler(struct mg_connection* connection, void* callback_data) {
 	int   response_status = 200;
 
 	if (!need_save) {
-		pthread_mutex_lock(&mtx_print);
+		pthread_mutex_lock(&mutex_print);
 		print_info("[RAW_DATA]: %s\n", data);
-		pthread_mutex_unlock(&mtx_print);
+		pthread_mutex_unlock(&mutex_print);
 
 		response_json = http_build_json("message", "OK");
 	} else if (save_text_to_file(data, save_to_item->valuestring, NULL) == 0) {

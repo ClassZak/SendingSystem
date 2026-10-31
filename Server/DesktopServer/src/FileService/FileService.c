@@ -175,29 +175,27 @@ bool file_exists(const char* filename) {
  */
 char* read_file_full(const char* filename, long* data_size) {
 	if (!file_exists(filename)) {
-		unsigned long err;
 #ifdef _WIN32
-    err = GetLastError();
-    print_error("Error reading file '%s': code %lu\n", filename, (unsigned long)err);
-	print_error("Error in file '%s', line:%d in '%s'\n", __FILE__, __LINE__, __FUNCTION__);
+		unsigned long err = GetLastError();
+		print_error("Error reading file '%s': code %lu\n", filename, (unsigned long)err);
+		print_error("Error in file '%s', line:%d in '%s'\n", __FILE__, __LINE__, __FUNCTION__);
 #else
-    err = errno;
-    print_error("Error reading file '%s': code %d %s\n",
-                filename, err, strerror(err));
-	print_error("Error in file '%s', line:%d in '%s'\n", __FILE__, __LINE__, __FUNCTION__);
+		int err = errno;
+		print_error("Error reading file '%s': code %d %s\n",
+					filename, err, strerror(err));
+		print_error("Error in file '%s', line:%d in '%s'\n", __FILE__, __LINE__, __FUNCTION__);
 #endif
 		return NULL;
 	}
 
 	FILE* file = fopen(filename, "rb");
 	if (!file) {
-		unsigned long err;
 #ifdef _WIN32
-		err = GetLastError();
+		unsigned long err = GetLastError();
 		print_error("Error reading file '%s': code %lu\n", filename, (unsigned long)err);
 		print_error("Error in file '%s', line:%d in '%s'\n", __FILE__, __LINE__, __FUNCTION__);
 #else
-		err = errno;
+		int err = errno;
 		print_error("Error reading file '%s': code %d %s\n",
 					filename, err, strerror(err));
 		print_error("Error in file '%s', line:%d in '%s'\n", __FILE__, __LINE__, __FUNCTION__);

@@ -24,7 +24,6 @@
 #include "save_connection.h"
 
 
-#include "../util/config.h"
 #include "../PrintProcedures/PrintProcedures.h"
 
 #include "../database/connection_repository.h"

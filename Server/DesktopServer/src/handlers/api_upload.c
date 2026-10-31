@@ -54,8 +54,8 @@
 
 
 
-extern pthread_mutex_t mtx_print;
-extern pthread_mutex_t mtx_fprint;
+extern pthread_mutex_t mutex_print;
+extern pthread_mutex_t mutex_fprint;
 
 
 
@@ -105,9 +105,9 @@ static int on_field_found(const char* key, const char* filename,
 	snprintf(u->path, sizeof(u->path), "%s", path);
 	u->size = 0;
 
-	pthread_mutex_lock(&mtx_fprint);
+	pthread_mutex_lock(&mutex_fprint);
 	u->fp = fopen(path, "wb");
-	pthread_mutex_unlock(&mtx_fprint);
+	pthread_mutex_unlock(&mutex_fprint);
 
 	if (!u->fp) {
 		print_error("Cannot open %s for write\n", path);
@@ -155,9 +155,9 @@ static int on_field_store(const char* path, long long size, void* user_data) {
 	upload_ctx_t* u = user_data;
 
 	if (u->fp) {
-		pthread_mutex_lock(&mtx_fprint);
+		pthread_mutex_lock(&mutex_fprint);
 		fclose(u->fp);
-		pthread_mutex_unlock(&mtx_fprint);
+		pthread_mutex_unlock(&mutex_fprint);
 		u->fp = NULL;
 	}
 

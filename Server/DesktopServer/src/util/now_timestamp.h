@@ -19,6 +19,8 @@
  */
 #pragma once
 
+#include <stddef.h>
+
 /**
  * Writes the current local time into the buffer as
  * "yyyy-MM-dd HH:mm:ss" — the same format the Android client stores
@@ -28,4 +30,4 @@
  * @param buffer_capacity (size_t, Required) — capacity; must fit 19
  *                        characters plus NUL.
  */
-void now_timestamp(char* buffer, unsigned long long buffer_capacity);
+void now_timestamp(char* buffer, size_t buffer_capacity);

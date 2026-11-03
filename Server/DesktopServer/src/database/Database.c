@@ -46,8 +46,8 @@ int database_open(const char* filename, sqlite3** out_db) {
 	sqlite3* db = NULL;
 
 	if (sqlite3_open(filename, &db) != SQLITE_OK) {
-		print_error("Cannot open %s: %s\n", filename, sqlite3_errmsg(db));
-		print_error("Error in file '%s', line:%d in '%s'\n", __FILE__, __LINE__, __FUNCTION__);
+		print_error_log("Cannot open %s: %s\n", filename, sqlite3_errmsg(db));
+		print_error_log("Error in file '%s', line:%d in '%s'\n", __FILE__, __LINE__, __FUNCTION__);
 		sqlite3_close(db);
 
 		return -1;
@@ -60,8 +60,8 @@ int database_open(const char* filename, sqlite3** out_db) {
 	long size = 0;
 	char* sql = read_file_full(CREATE_DATABASE_FILE, &size);
 	if (!sql) {
-		print_error("Cannot read %s\n", CREATE_DATABASE_FILE);
-		print_error("Error in file '%s', line:%d in '%s'\n", __FILE__, __LINE__, __FUNCTION__);
+		print_error_log("Cannot read %s\n", CREATE_DATABASE_FILE);
+		print_error_log("Error in file '%s', line:%d in '%s'\n", __FILE__, __LINE__, __FUNCTION__);
 		sqlite3_close(db);
 
 		return -1;
@@ -73,8 +73,8 @@ int database_open(const char* filename, sqlite3** out_db) {
 	free(sql);
 
 	if (rc != SQLITE_OK) {
-		print_error("Schema: %s\n", err ? err : "unknown");
-		print_error("Error in file '%s', line:%d in '%s'\n", __FILE__, __LINE__, __FUNCTION__);
+		print_error_log("Schema: %s\n", err ? err : "unknown");
+		print_error_log("Error in file '%s', line:%d in '%s'\n", __FILE__, __LINE__, __FUNCTION__);
 		sqlite3_free(err);
 		sqlite3_close(db);
 

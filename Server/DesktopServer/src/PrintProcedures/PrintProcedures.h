@@ -66,7 +66,21 @@
  * @param format (const char*, Required) — printf-style format string.
  * @param ...    (varargs, Required)    — format arguments.
  */
+void print_error_log(const char* format, ...);
+
+
+
+
+/**
+ * Prints an error message to stderr in red.
+ *
+ * @param format (const char*, Required) — printf-style format string.
+ * @param ...    (varargs, Required)    — format arguments.
+ */
 void print_error(const char* format, ...);
+
+
+
 
 
 

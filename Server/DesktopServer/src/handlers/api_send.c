@@ -92,8 +92,8 @@ static int save_text_to_file(const char* data, const char* save_to_path,
 	FILE* f = fopen(full_path, "wb");
 	if (!f) {
 		pthread_mutex_unlock(&mutex_fprint);
-		print_error("Cannot open %s\n", full_path);
-		print_error("Error in file '%s', line:%d in '%s'\n",
+		print_error_log("Cannot open %s\n", full_path);
+		print_error_log("Error in file '%s', line:%d in '%s'\n",
 		            __FILE__, __LINE__, __FUNCTION__);
 		return -1;
 	}

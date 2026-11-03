@@ -51,8 +51,8 @@ DB_ID save_connection(struct mg_connection* conn) {
 	database_close(database);
 
 	if (element == -1) {
-		print_error("Failed to save connection\n");
-		print_error("Error in file '%s', line:%d in '%s'\n", __FILE__, __LINE__, __FUNCTION__);
+		print_error_log("Failed to save connection\n");
+		print_error_log("Error in file '%s', line:%d in '%s'\n", __FILE__, __LINE__, __FUNCTION__);
 
 		return -1;
 	}

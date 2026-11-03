@@ -96,8 +96,8 @@ static void install_signals(void) {
 
 	if (sigaction(SIGINT, &sa, NULL) == -1 ||
 	    sigaction(SIGTERM, &sa, NULL) == -1) {
-		print_error(FAILED_SIGNAL_HANDLERS_MESSAGE);
-		print_error("Error in file '%s', line:%d in '%s'\n", __FILE__, __LINE__, __FUNCTION__);
+		print_error_log(FAILED_SIGNAL_HANDLERS_MESSAGE);
+		print_error_log("Error in file '%s', line:%d in '%s'\n", __FILE__, __LINE__, __FUNCTION__);
 		exit(EXIT_FAILURE);
 	}
 
@@ -120,8 +120,8 @@ static long get_cpu_count(void) {
 	nprocs = sysconf(_SC_NPROCESSORS_ONLN);
 	if (nprocs == -1) {
 		int err = errno;
-		print_error("Failed to get CPU count: %d, %s\n", err, strerror(err));
-		print_error("Error in file '%s', line:%d in '%s'\n", __FILE__, __LINE__, __FUNCTION__);
+		print_error_log("Failed to get CPU count: %d, %s\n", err, strerror(err));
+		print_error_log("Error in file '%s', line:%d in '%s'\n", __FILE__, __LINE__, __FUNCTION__);
 	}
 #else
 	SYSTEM_INFO sys_info;
@@ -204,8 +204,8 @@ int server() {
 
 	sqlite3* db = NULL;
 	if (database_open(DATABASE_FILENAME, &db) != 0) {
-		print_error("Failed to open database\n");
-		print_error("Error in file '%s', line:%d in '%s'\n", __FILE__, __LINE__, __FUNCTION__);
+		print_error_log("Failed to open database\n");
+		print_error_log("Error in file '%s', line:%d in '%s'\n", __FILE__, __LINE__, __FUNCTION__);
 		mg_exit_library();
 
 		return EXIT_FAILURE;
@@ -238,8 +238,8 @@ int server() {
 
 	struct mg_context* ctx = mg_start(&cb, NULL, options);
 	if (!ctx) {
-		print_error("mg_start failed\n");
-		print_error("Error in file '%s', line:%d in '%s'\n", __FILE__, __LINE__, __FUNCTION__);
+		print_error_log("mg_start failed\n");
+		print_error_log("Error in file '%s', line:%d in '%s'\n", __FILE__, __LINE__, __FUNCTION__);
 		database_close(db);
 		mg_exit_library();
 

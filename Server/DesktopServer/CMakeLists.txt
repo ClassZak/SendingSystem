@@ -137,7 +137,13 @@ endif()
 
 
 # Compile definitions
-target_compile_definitions(civetweb-c-library PRIVATE USE_WEBSOCKET)
+target_compile_definitions(civetweb-c-library PRIVATE USE_WEBSOCKE)
+add_compile_definitions(SendingSystem
+	PRIVATE VERSION="${SendingSystem_VERSION}"
+)
+add_compile_definitions(SendingSystem
+	PRIVATE PROJECT_NAME="SendingSystem"
+)
 
 
 

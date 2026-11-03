@@ -130,7 +130,7 @@ void sanitize_filename(char* dest, size_t dest_size, const char* src) {
 /**
  * Logs the current working directory.
  *
- * Prints via print_info on success, print_error on failure.
+ * Prints via print_info on success, print_error_log on failure.
  */
 void print_pwd(void) {
 	char buffer[0x1000];
@@ -138,8 +138,8 @@ void print_pwd(void) {
 	if (get_pwd(buffer, sizeof(buffer))) {
 		print_info("Current working directory: %s\n", buffer);
 	} else {
-		print_error("Error getting current directory\n");
-		print_error("Error in file '%s', line:%d in '%s'\n", __FILE__, __LINE__, __FUNCTION__);
+		print_error_log("Error getting current directory\n");
+		print_error_log("Error in file '%s', line:%d in '%s'\n", __FILE__, __LINE__, __FUNCTION__);
 	}
 }
 
@@ -177,13 +177,13 @@ char* read_file_full(const char* filename, long* data_size) {
 	if (!file_exists(filename)) {
 #ifdef _WIN32
 		unsigned long err = GetLastError();
-		print_error("Error reading file '%s': code %lu\n", filename, (unsigned long)err);
-		print_error("Error in file '%s', line:%d in '%s'\n", __FILE__, __LINE__, __FUNCTION__);
+		print_error_log("Error reading file '%s': code %lu\n", filename, (unsigned long)err);
+		print_error_log("Error in file '%s', line:%d in '%s'\n", __FILE__, __LINE__, __FUNCTION__);
 #else
 		int err = errno;
-		print_error("Error reading file '%s': code %d %s\n",
+		print_error_log("Error reading file '%s': code %d %s\n",
 					filename, err, strerror(err));
-		print_error("Error in file '%s', line:%d in '%s'\n", __FILE__, __LINE__, __FUNCTION__);
+		print_error_log("Error in file '%s', line:%d in '%s'\n", __FILE__, __LINE__, __FUNCTION__);
 #endif
 		return NULL;
 	}
@@ -192,13 +192,13 @@ char* read_file_full(const char* filename, long* data_size) {
 	if (!file) {
 #ifdef _WIN32
 		unsigned long err = GetLastError();
-		print_error("Error reading file '%s': code %lu\n", filename, (unsigned long)err);
-		print_error("Error in file '%s', line:%d in '%s'\n", __FILE__, __LINE__, __FUNCTION__);
+		print_error_log("Error reading file '%s': code %lu\n", filename, (unsigned long)err);
+		print_error_log("Error in file '%s', line:%d in '%s'\n", __FILE__, __LINE__, __FUNCTION__);
 #else
 		int err = errno;
-		print_error("Error reading file '%s': code %d %s\n",
+		print_error_log("Error reading file '%s': code %d %s\n",
 					filename, err, strerror(err));
-		print_error("Error in file '%s', line:%d in '%s'\n", __FILE__, __LINE__, __FUNCTION__);
+		print_error_log("Error in file '%s', line:%d in '%s'\n", __FILE__, __LINE__, __FUNCTION__);
 #endif
 		return NULL;
 	}
@@ -253,9 +253,9 @@ int touch_file(const char* filename) {
 	);
 
 	if (hFile == INVALID_HANDLE_VALUE) {
-		print_error("Cannot open/create '%s': code %lu\n",
+		print_error_log("Cannot open/create '%s': code %lu\n",
 		            filename, GetLastError());
-		print_error("Error in file '%s', line:%d in '%s'\n", __FILE__, __LINE__, __FUNCTION__);
+		print_error_log("Error in file '%s', line:%d in '%s'\n", __FILE__, __LINE__, __FUNCTION__);
 		return -1;
 	}
 
@@ -265,9 +265,9 @@ int touch_file(const char* filename) {
 	SystemTimeToFileTime(&now_sys, &now_file);
 
 	if (!SetFileTime(hFile, NULL, &now_file, &now_file)) {
-		print_error("Cannot update timestamp '%s': code %lu\n",
+		print_error_log("Cannot update timestamp '%s': code %lu\n",
 		            filename, GetLastError());
-		print_error("Error in file '%s', line:%d in '%s'\n", __FILE__, __LINE__, __FUNCTION__);
+		print_error_log("Error in file '%s', line:%d in '%s'\n", __FILE__, __LINE__, __FUNCTION__);
 		CloseHandle(hFile);
 		return -1;
 	}
@@ -277,15 +277,15 @@ int touch_file(const char* filename) {
 #else
 	FILE* file = fopen(filename, "a");
 	if (!file) {
-		print_error("Cannot open/create '%s'\n", filename);
-		print_error("Error in file '%s', line:%d in '%s'\n", __FILE__, __LINE__, __FUNCTION__);
+		print_error_log("Cannot open/create '%s'\n", filename);
+		print_error_log("Error in file '%s', line:%d in '%s'\n", __FILE__, __LINE__, __FUNCTION__);
 		return -1;
 	}
 	fclose(file);
 
 	if (utimensat(AT_FDCWD, filename, NULL, 0) < 0) {
-		print_error("Cannot update timestamp '%s'\n", filename);
-		print_error("Error in file '%s', line:%d in '%s'\n", __FILE__, __LINE__, __FUNCTION__);
+		print_error_log("Cannot update timestamp '%s'\n", filename);
+		print_error_log("Error in file '%s', line:%d in '%s'\n", __FILE__, __LINE__, __FUNCTION__);
 		return -1;
 	}
 

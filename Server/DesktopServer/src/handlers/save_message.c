@@ -50,8 +50,8 @@ DB_ID save_message(const Message* message) {
 	database_close(database);
 
 	if (element == -1) {
-		print_error("Failed to save message\n");
-		print_error("Error in file '%s', line:%d in '%s'\n", __FILE__, __LINE__, __FUNCTION__);
+		print_error_log("Failed to save message\n");
+		print_error_log("Error in file '%s', line:%d in '%s'\n", __FILE__, __LINE__, __FUNCTION__);
 
 		return -1;
 	}

@@ -110,8 +110,8 @@ static int on_field_found(const char* key, const char* filename,
 	pthread_mutex_unlock(&mutex_fprint);
 
 	if (!u->fp) {
-		print_error("Cannot open %s for write\n", path);
-		print_error("Error in file '%s', line:%d in '%s'\n",
+		print_error_log("Cannot open %s for write\n", path);
+		print_error_log("Error in file '%s', line:%d in '%s'\n",
 		            __FILE__, __LINE__, __FUNCTION__);
 		return MG_FORM_FIELD_STORAGE_ABORT;
 	}
@@ -217,8 +217,8 @@ int api_upload_handler(struct mg_connection* connection, void* callback_data) {
 	DB_ID connection_id = save_connection(connection);
 	if (connection_id == -1) {
 		http_send_error(connection, 500, "Data base error");
-		print_error("Data base error. Failed to save connection\n");
-		print_error("Error in file '%s', line:%d in '%s'\n",
+		print_error_log("Data base error. Failed to save connection\n");
+		print_error_log("Error in file '%s', line:%d in '%s'\n",
 		            __FILE__, __LINE__, __FUNCTION__);
 		return 1;
 	}
@@ -244,8 +244,8 @@ int api_upload_handler(struct mg_connection* connection, void* callback_data) {
 	if (message_id == -1) {
 		/* Still deliver the response — the file *was* saved, only
 		 * the history row failed. */
-		print_error("Data base error. Failed to save message\n");
-		print_error("Error in file '%s', line:%d in '%s'\n",
+		print_error_log("Data base error. Failed to save message\n");
+		print_error_log("Error in file '%s', line:%d in '%s'\n",
 		            __FILE__, __LINE__, __FUNCTION__);
 	}
 

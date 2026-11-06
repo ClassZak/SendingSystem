@@ -198,7 +198,6 @@ int server() {
 
 	pthread_t addr_thread;
 	if (pthread_create(&addr_thread, NULL, log_addresses_worker, NULL) == 0) {
-		pthread_detach(addr_thread);
 	}
 
 
@@ -207,6 +206,7 @@ int server() {
 		print_error_log("Failed to open database\n");
 		print_error_log("Error in file '%s', line:%d in '%s'\n", __FILE__, __LINE__, __FUNCTION__);
 		mg_exit_library();
+		pthread_join(addr_thread, NULL);
 
 		return EXIT_FAILURE;
 	}
@@ -242,6 +242,7 @@ int server() {
 		print_error_log("Error in file '%s', line:%d in '%s'\n", __FILE__, __LINE__, __FUNCTION__);
 		database_close(db);
 		mg_exit_library();
+		pthread_join(addr_thread, NULL);
 
 		return EXIT_FAILURE;
 	}
@@ -263,9 +264,11 @@ int server() {
 	while (keep_running) {
 		sleep(1);
 	}
+	mg_stop(ctx);
+	pthread_join(addr_thread, NULL);
+
 
 	print_info("Stopping...\n");
-	mg_stop(ctx);
 	database_close(db);
 	mg_exit_library();
 

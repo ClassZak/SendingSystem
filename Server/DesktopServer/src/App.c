@@ -104,6 +104,16 @@ void print_server_config(const ServerConfig* cfg);
 
 
 /**
+ * Unset ServerConfig fields.
+ *
+ * @param cfg (const ServerConfig*, Required) — configuration to unset
+ */
+void unset_server_config(ServerConfig* cfg);
+
+
+
+
+/**
  * Prints help for all options from the options table.
  *
  * @param app_name (const char*, Required) — application name for the header
@@ -117,7 +127,7 @@ void print_help(const char* app_name);
  *
  * @param app_name (const char*, Required) — application name.
  */
-static void print_version(const char* app_name);
+void print_version(const char* app_name);
 
 
 /**
@@ -232,13 +242,39 @@ int main(int argc, char** argv) {
 		break;
 	}
 
-	if (interactive_config(&server_config) != EXIT_SUCCESS)
-		return EXIT_FAILURE;
+	do {
+		if (interactive_config(&server_config) != EXIT_SUCCESS)
+			return EXIT_FAILURE;
 
-	print_server_config(&server_config);
+		print_server_config(&server_config);
 
-	if (server() == EXIT_FAILURE)
-		return EXIT_FAILURE;
+		if (server() == EXIT_FAILURE) {
+			return EXIT_FAILURE;
+		}
+
+
+		bool do_exit = false;
+		if (lt_init() != LT_OK) {
+			print_error("Failed libterm initialization\n");
+			print_error_log("Error in file '%s', line:%d in '%s'\n", __FILE__, __LINE__, __FUNCTION__);
+			return EXIT_FAILURE;
+		}
+		lt_print(1, 1, LT_GREEN, LT_DEFAULT, "'q' or 'Esc' key to quit. Another key to reset configuration");
+
+		struct lt_event ev;
+		while (lt_poll_event(&ev) == LT_OK) {
+			if (ev.type != LT_EVENT_KEY)
+				continue;
+			if (ev.ch == 'q' || ev.key == LT_KEY_ESC)
+				do_exit = true;
+			else
+				do_exit = false;
+		}
+
+
+		lt_shutdown();
+		unset_server_config(&server_config);
+	} while(1);
 
 	return EXIT_SUCCESS;
 }
@@ -294,6 +330,14 @@ void print_server_config(const ServerConfig* cfg) {
 	printf("  launch_type        : %s\n", launch_name);
 }
 
+
+
+
+void unset_server_config(ServerConfig* cfg) {
+	cfg->ip_set = false;
+	cfg->port_set = false;
+	cfg->role_set = false;
+}
 
 
 
@@ -441,7 +485,8 @@ static int interactive_config(ServerConfig* cfg) {
 	if (cfg->ip_set && cfg->port_set && cfg->role_set)
 		return EXIT_SUCCESS;
 
-	if (lt_init() != LT_OK) {
+	int lt_err = lt_init();
+	if (lt_err != LT_OK) {
 		print_error("Error console UI initialization\n");
 		print_error("Error in file '%s', line:%d in '%s'\n",
 		            __FILE__, __LINE__, __FUNCTION__);
@@ -519,7 +564,9 @@ void print_help(const char* app_name) {
 }
 
 
-static void print_version(const char* app_name) {
+
+
+void print_version(const char* app_name) {
 	printf("%s version 1.0.0\n", app_name);
 }
 
